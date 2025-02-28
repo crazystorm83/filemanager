@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>파일 찾기</title>
+        <style>
+            html,
+            body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Arial, sans-serif;
+            }
+            body {
+                display: flex;
+                flex-direction: column;
+                padding: 16px;
+                background-color: #f5f5f5;
+                box-sizing: border-box;
+                height: 100%;
+            }
+            .container {
+                display: flex;
+                flex-direction: column;
+                background-color: white;
+                border-radius: 8px;
+                padding: 20px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+                flex: 1;
+                overflow: auto;
+            }
+            .form-group {
+                margin-bottom: 15px;
+                display: flex;
+                align-items: center;
+            }
+            label {
+                display: block;
+                margin-bottom: 5px;
+                font-weight: bold;
+            }
+            .input-group {
+                display: flex;
+                flex: 1;
+            }
+            input[type='text'] {
+                flex: 1;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                box-sizing: border-box;
+            }
+            .browse-btn {
+                margin-left: 8px;
+                padding: 8px 12px;
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+            .button-group {
+                display: flex;
+                justify-content: flex-end;
+                margin-top: auto;
+                padding-top: 15px;
+            }
+            button {
+                padding: 8px 16px;
+                border: none;
+                border-radius: 4px;
+                margin-left: 10px;
+                cursor: pointer;
+            }
+            button.primary {
+                background-color: #0078d7;
+                color: white;
+            }
+            button.secondary {
+                background-color: #e0e0e0;
+                color: #333;
+            }
+            h2 {
+                margin-top: 0;
+                margin-bottom: 20px;
+            }
+            .results-area {
+                flex: 1;
+                overflow: auto;
+                margin-top: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 10px;
+                display: none;
+            }
+            .results-area.visible {
+                display: block;
+            }
+            .folder-shortcut {
+                margin-top: 5px;
+                display: flex;
+                flex-wrap: wrap;
+            }
+            .folder-shortcut button {
+                font-size: 12px;
+                padding: 4px 8px;
+                margin: 0 5px 5px 0;
+            }
+            /* 트리 스타일 */
+            .tree {
+                margin: 0;
+                padding: 0;
+                list-style-type: none;
+            }
+            .tree-item {
+                margin: 0;
+                padding: 3px 0;
+            }
+            .tree-folder {
+                margin-bottom: 5px;
+            }
+            .tree-folder-header {
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+                padding: 5px;
+                border-radius: 4px;
+            }
+            .tree-folder-header:hover {
+                background-color: #f0f0f0;
+            }
+            .tree-folder-name {
+                font-weight: bold;
+                margin-left: 5px;
+            }
+            .tree-folder-icon {
+                color: #0078d7;
+            }
+            .tree-folder-content {
+                margin-left: 20px;
+                display: none;
+            }
+            .tree-folder-content.open {
+                display: block;
+            }
+            .tree-item-file {
+                display: flex;
+                align-items: center;
+                padding: 3px 5px;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+            .tree-item-file:hover {
+                background-color: #f0f0f0;
+            }
+            .tree-item-icon {
+                color: #0078d7;
+                margin-right: 5px;
+            }
+            .tree-item-name {
+                margin-left: 5px;
+                word-break: break-all;
+            }
+            .tree-toggle {
+                margin-right: 5px;
+                cursor: pointer;
+                width: 16px;
+                height: 16px;
+                text-align: center;
+                line-height: 16px;
+            }
+            .result-count {
+                margin-left: 10px;
+                font-size: 0.9em;
+                color: #666;
+            }
+
+            /* 선택된 파일 항목 스타일 */
+            .tree-item-file.selected {
+                background-color: #e6f2ff;
+                border-left: 3px solid #0078d7;
+            }
+
+            /* 선택된 폴더 헤더 스타일 */
+            .tree-folder-header.selected {
+                background-color: #e6f2ff;
+                border-left: 3px solid #0078d7;
+            }
+            /* 결과 헤더 스타일 */
+            .results-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+            .results-header h3 {
+                margin: 0;
+            }
+
+            .tree-controls {
+                display: flex;
+                gap: 8px;
+            }
+
+            .tree-control-btn {
+                font-size: 12px;
+                padding: 4px 8px;
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            .tree-control-btn:hover {
+                background-color: #e0e0e0;
+            }
+
+            /* 컨텍스트 메뉴 스타일 */
+            .context-menu {
+                position: absolute;
+                display: none;
+                background-color: white;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                min-width: 150px;
+            }
+
+            .context-menu-item {
+                padding: 8px 12px;
+                cursor: pointer;
+            }
+
+            .context-menu-item:hover {
+                background-color: #f0f0f0;
+            }
+
+            /* 알림 스타일 */
+            .notification {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background-color: #333;
+                color: white;
+                padding: 12px 16px;
+                border-radius: 4px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+                z-index: 2000;
+                animation: fadeIn 0.3s, fadeOut 0.3s 2.7s;
+                max-width: 80%;
+            }
+
+            .notification-content {
+                display: flex;
+                align-items: center;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            @keyframes fadeOut {
+                from {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>파일 찾기</h2>
+            <div class="form-group">
+                <label for="folder-path">폴더 경로:</label>
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="folder-path"
+                        placeholder="검색할 폴더 경로를 입력하세요" />
+                    <button
+                        class="browse-btn"
+                        id="btn-browse">
+                        찾아보기...
+                    </button>
+                </div>
+            </div>
+
+            <div class="folder-shortcut">
+                <button id="btn-desktop">바탕화면</button>
+                <button id="btn-documents">문서</button>
+                <button id="btn-downloads">다운로드</button>
+                <button id="btn-pictures">사진</button>
+                <button id="btn-music">음악</button>
+                <button id="btn-videos">비디오</button>
+                <button id="btn-appdata">AppData</button>
+            </div>
+
+            <div class="form-group">
+                <label for="file-pattern">찾을 파일:</label>
+                <input
+                    type="text"
+                    id="file-pattern"
+                    placeholder="파일명 또는 패턴 (예: *.txt)" />
+            </div>
+            <div
+                class="results-area"
+                id="results-container">
+                <div class="results-header">
+                    <h3>
+                        검색 결과:
+                        <span
+                            id="result-count"
+                            class="result-count"></span>
+                    </h3>
+                    <div class="tree-controls">
+                        <button
+                            id="expand-all"
+                            class="tree-control-btn">
+                            전체 펼치기
+                        </button>
+                        <button
+                            id="collapse-all"
+                            class="tree-control-btn">
+                            전체 접기
+                        </button>
+                    </div>
+                </div>
+                <div
+                    id="tree-view"
+                    class="tree"></div>
+            </div>
+            <div class="button-group">
+                <button
+                    class="secondary"
+                    id="btn-close">
+                    닫기
+                </button>
+                <button
+                    class="primary"
+                    id="btn-find">
+                    찾기
+                </button>
+            </div>
+        </div>
+        <!-- 폴더 컨텍스트 메뉴 -->
+        <div
+            id="folder-context-menu"
+            class="context-menu">
+            <div
+                class="context-menu-item"
+                id="ctx-expand-subfolder">
+                하위 폴더 전체 펼치기
+            </div>
+            <div
+                class="context-menu-item"
+                id="ctx-collapse-subfolder">
+                하위 폴더 전체 접기
+            </div>
+            <div
+                class="context-menu-item"
+                id="ctx-copy-folder-path">
+                폴더 경로 복사
+            </div>
+        </div>
+
+        <!-- 파일 컨텍스트 메뉴 -->
+        <div
+            id="file-context-menu"
+            class="context-menu">
+            <div
+                class="context-menu-item"
+                id="ctx-copy-file-path">
+                파일 경로 복사
+            </div>
+        </div>
+
+        <script>
+            const { ipcRenderer } = require('electron');
+            const path = require('path');
+
+            // 버튼 이벤트 연결
+            document
+                .getElementById('btn-find')
+                .addEventListener('click', () => {
+                    const folderPath =
+                        document.getElementById('folder-path').value;
+                    const filePattern =
+                        document.getElementById('file-pattern').value;
+
+                    if (folderPath && filePattern) {
+                        ipcRenderer.send('find-files', {
+                            folderPath,
+                            filePattern,
+                        });
+
+                        // 검색 중임을 표시
+                        const resultsContainer =
+                            document.getElementById('results-container');
+                        const treeView = document.getElementById('tree-view');
+                        treeView.innerHTML =
+                            '<div class="tree-item">검색 중...</div>';
+                        resultsContainer.classList.add('visible');
+                    } else {
+                        alert('폴더 경로와 찾을 파일을 모두 입력해주세요.');
+                    }
+                });
+
+            document
+                .getElementById('btn-close')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('close-file-finder');
+                });
+
+            // 폴더 찾아보기 버튼
+            document
+                .getElementById('btn-browse')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('open-folder-dialog');
+                });
+
+            // 시스템 폴더 버튼들
+            document
+                .getElementById('btn-desktop')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'desktop');
+                });
+
+            document
+                .getElementById('btn-documents')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'documents');
+                });
+
+            document
+                .getElementById('btn-downloads')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'downloads');
+                });
+
+            document
+                .getElementById('btn-pictures')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'pictures');
+                });
+
+            document
+                .getElementById('btn-music')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'music');
+                });
+
+            document
+                .getElementById('btn-videos')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'videos');
+                });
+
+            document
+                .getElementById('btn-appdata')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'appData');
+                });
+
+            // 파일 패턴 입력 필드에 엔터 키 이벤트 추가
+            document
+                .getElementById('file-pattern')
+                .addEventListener('keypress', (event) => {
+                    // 엔터 키가 눌렸을 때
+                    if (event.key === 'Enter') {
+                        // 기본 폼 제출 동작 방지
+                        event.preventDefault();
+                        // 찾기 버튼 클릭 이벤트 발생
+                        document.getElementById('btn-find').click();
+                        return;
+                    }
+
+                    // ESC 키가 눌렸을 때
+                    if (event.key === 'Escape') {
+                        // 기본 동작 방지
+                        event.preventDefault();
+
+                        // 확인 대화상자 표시
+                        const closeConfirm =
+                            confirm('정말로 창을 닫으시겠습니까?');
+
+                        // 사용자가 확인을 눌렀을 때만 창 닫기
+                        if (closeConfirm) {
+                            ipcRenderer.send('close-file-finder');
+                        }
+                        return;
+                    }
+                });
+
+            // 컨텍스트 메뉴 관련 변수
+            let contextMenuTarget = null;
+            let contextMenuPath = null;
+
+            // 폴더 컨텍스트 메뉴 표시
+            function showFolderContextMenu(event, folderHeader, folderPath) {
+                event.preventDefault();
+
+                // 먼저 모든 컨텍스트 메뉴 숨기기
+                hideContextMenus();
+
+                const contextMenu = document.getElementById(
+                    'folder-context-menu'
+                );
+                contextMenuTarget = folderHeader;
+                contextMenuPath = folderPath;
+
+                // 메뉴 위치 설정
+                contextMenu.style.left = `${event.pageX}px`;
+                contextMenu.style.top = `${event.pageY}px`;
+                contextMenu.style.display = 'block';
+
+                // 다른 영역 클릭 시 메뉴 닫기 (이벤트 위임 사용)
+                // 중요: setTimeout을 사용하여 현재 클릭 이벤트가 처리된 후에 리스너 추가
+                setTimeout(() => {
+                    document.addEventListener('mousedown', hideContextMenus);
+                }, 0);
+            }
+
+            // 파일 컨텍스트 메뉴 표시
+            function showFileContextMenu(event, filePath) {
+                event.preventDefault();
+
+                // 먼저 모든 컨텍스트 메뉴 숨기기
+                hideContextMenus();
+
+                const contextMenu =
+                    document.getElementById('file-context-menu');
+                contextMenuTarget = null;
+                contextMenuPath = filePath;
+
+                // 메뉴 위치 설정
+                contextMenu.style.left = `${event.pageX}px`;
+                contextMenu.style.top = `${event.pageY}px`;
+                contextMenu.style.display = 'block';
+
+                // 다른 영역 클릭 시 메뉴 닫기 (이벤트 위임 사용)
+                // 중요: setTimeout을 사용하여 현재 클릭 이벤트가 처리된 후에 리스너 추가
+                setTimeout(() => {
+                    document.addEventListener('mousedown', hideContextMenus);
+                }, 0);
+            }
+
+            // 모든 컨텍스트 메뉴 숨기기
+            function hideContextMenus(event) {
+                const folderMenu = document.getElementById(
+                    'folder-context-menu'
+                );
+                const fileMenu = document.getElementById('file-context-menu');
+
+                // 이벤트가 있고 메뉴 내부를 클릭한 경우 무시 (메뉴 아이템 클릭 처리 허용)
+                if (event) {
+                    if (
+                        folderMenu.contains(event.target) ||
+                        fileMenu.contains(event.target)
+                    ) {
+                        return;
+                    }
+                }
+
+                folderMenu.style.display = 'none';
+                fileMenu.style.display = 'none';
+
+                // 이벤트 리스너 제거
+                document.removeEventListener('mousedown', hideContextMenus);
+            }
+
+            // 클립보드에 텍스트 복사
+            function copyToClipboard(text) {
+                // 임시 textarea 요소 생성
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed'; // 화면 밖으로
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+
+                // 텍스트 선택 및 복사
+                textarea.select();
+                document.execCommand('copy');
+
+                // 임시 요소 제거
+                document.body.removeChild(textarea);
+
+                // 복사 완료 알림
+                showCopyNotification(text);
+            }
+
+            // 복사 완료 알림 표시
+            function showCopyNotification(path) {
+                // 이미 있는 알림 제거
+                const existingNotification =
+                    document.getElementById('copy-notification');
+                if (existingNotification) {
+                    document.body.removeChild(existingNotification);
+                }
+
+                // 새 알림 생성
+                const notification = document.createElement('div');
+                notification.id = 'copy-notification';
+                notification.className = 'notification';
+
+                // 경로가 너무 길면 줄임
+                const displayPath =
+                    path.length > 50
+                        ? path.substring(0, 20) +
+                          '...' +
+                          path.substring(path.length - 25)
+                        : path;
+
+                notification.innerHTML = `
+    <div class="notification-content">
+      <span>복사됨: ${displayPath}</span>
+    </div>
+  `;
+
+                document.body.appendChild(notification);
+
+                // 3초 후 알림 제거
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        document.body.removeChild(notification);
+                    }
+                }, 3000);
+            }
+
+            // 선택된 폴더의 하위 폴더 전체 펼치기
+            function expandSubFolders(folderHeader) {
+                // 폴더 콘텐츠 요소 가져오기
+                const folderContent = folderHeader.nextElementSibling;
+
+                // 현재 폴더 열기
+                if (!folderContent.classList.contains('open')) {
+                    folderContent.classList.add('open');
+                    const toggleIcon =
+                        folderHeader.querySelector('.tree-toggle');
+                    toggleIcon.textContent = '▼';
+                }
+
+                // 하위 폴더 모두 펼치기
+                const subFolders = folderContent.querySelectorAll(
+                    '.tree-folder-header'
+                );
+                subFolders.forEach((subHeader) => {
+                    const subContent = subHeader.nextElementSibling;
+                    subContent.classList.add('open');
+                    const subToggleIcon =
+                        subHeader.querySelector('.tree-toggle');
+                    subToggleIcon.textContent = '▼';
+                });
+            }
+
+            // 선택된 폴더의 하위 폴더 전체 접기
+            function collapseSubFolders(folderHeader) {
+                // 폴더 콘텐츠 요소 가져오기
+                const folderContent = folderHeader.nextElementSibling;
+
+                // 하위 폴더 모두 접기
+                const subFolders = folderContent.querySelectorAll(
+                    '.tree-folder-header'
+                );
+                subFolders.forEach((subHeader) => {
+                    const subContent = subHeader.nextElementSibling;
+                    subContent.classList.remove('open');
+                    const subToggleIcon =
+                        subHeader.querySelector('.tree-toggle');
+                    subToggleIcon.textContent = '►';
+                });
+
+                // 현재 폴더는 열린 상태 유지
+                folderContent.classList.add('open');
+                const toggleIcon = folderHeader.querySelector('.tree-toggle');
+                toggleIcon.textContent = '▼';
+            }
+
+            // 폴더 전체 펼치기 함수
+            function expandAllFolders() {
+                const folderContents = document.querySelectorAll(
+                    '.tree-folder-content'
+                );
+                const toggleIcons = document.querySelectorAll('.tree-toggle');
+
+                folderContents.forEach((content) => {
+                    content.classList.add('open');
+                });
+
+                toggleIcons.forEach((icon) => {
+                    icon.textContent = '▼';
+                });
+            }
+
+            // 폴더 전체 접기 함수
+            function collapseAllFolders() {
+                const folderContents = document.querySelectorAll(
+                    '.tree-folder-content'
+                );
+                const toggleIcons = document.querySelectorAll('.tree-toggle');
+
+                folderContents.forEach((content) => {
+                    content.classList.remove('open');
+                });
+
+                toggleIcons.forEach((icon) => {
+                    icon.textContent = '►';
+                });
+            }
+
+            // 전체 펼치기/접기 버튼 이벤트 리스너 등록
+            document.addEventListener('DOMContentLoaded', () => {
+                // 버튼 요소가 로드된 후에 이벤트 바인딩
+                const expandAllBtn = document.getElementById('expand-all');
+                const collapseAllBtn = document.getElementById('collapse-all');
+
+                if (expandAllBtn) {
+                    expandAllBtn.addEventListener('click', expandAllFolders);
+                }
+
+                if (collapseAllBtn) {
+                    collapseAllBtn.addEventListener(
+                        'click',
+                        collapseAllFolders
+                    );
+                }
+
+                // 하위 폴더 전체 펼치기 버튼
+                const expandSubfolderBtn = document.getElementById(
+                    'ctx-expand-subfolder'
+                );
+                if (expandSubfolderBtn) {
+                    expandSubfolderBtn.addEventListener('click', (event) => {
+                        if (contextMenuTarget) {
+                            expandSubFolders(contextMenuTarget);
+                            hideContextMenus(); // 이벤트 인자 없이 호출
+                        }
+                    });
+                }
+
+                // 하위 폴더 전체 접기 버튼
+                const collapseSubfolderBtn = document.getElementById(
+                    'ctx-collapse-subfolder'
+                );
+                if (collapseSubfolderBtn) {
+                    collapseSubfolderBtn.addEventListener('click', (event) => {
+                        if (contextMenuTarget) {
+                            collapseSubFolders(contextMenuTarget);
+                            hideContextMenus(); // 이벤트 인자 없이 호출
+                        }
+                    });
+                }
+
+                // 폴더 경로 복사 버튼
+                const copyFolderPathBtn = document.getElementById(
+                    'ctx-copy-folder-path'
+                );
+                if (copyFolderPathBtn) {
+                    copyFolderPathBtn.addEventListener('click', (event) => {
+                        if (contextMenuPath) {
+                            copyToClipboard(contextMenuPath);
+                            hideContextMenus(); // 이벤트 인자 없이 호출
+                        }
+                    });
+                }
+
+                // 파일 경로 복사 버튼
+                const copyFilePathBtn =
+                    document.getElementById('ctx-copy-file-path');
+                if (copyFilePathBtn) {
+                    copyFilePathBtn.addEventListener('click', (event) => {
+                        if (contextMenuPath) {
+                            copyToClipboard(contextMenuPath);
+                            hideContextMenus(); // 이벤트 인자 없이 호출
+                        }
+                    });
+                }
+            });
+
+            // 컨텍스트 메뉴 이벤트 설정
+            document.addEventListener('DOMContentLoaded', () => {
+                // 전체 펼치기/접기 버튼 이벤트 바인딩
+                const expandAllBtn = document.getElementById('expand-all');
+                const collapseAllBtn = document.getElementById('collapse-all');
+
+                if (expandAllBtn) {
+                    expandAllBtn.addEventListener('click', expandAllFolders);
+                }
+
+                if (collapseAllBtn) {
+                    collapseAllBtn.addEventListener(
+                        'click',
+                        collapseAllFolders
+                    );
+                }
+
+                // 컨텍스트 메뉴 항목 이벤트 바인딩
+                const expandSubfolderBtn = document.getElementById(
+                    'ctx-expand-subfolder'
+                );
+                const collapseSubfolderBtn = document.getElementById(
+                    'ctx-collapse-subfolder'
+                );
+
+                if (expandSubfolderBtn) {
+                    expandSubfolderBtn.addEventListener('click', () => {
+                        if (contextMenuTarget) {
+                            expandSubFolders(contextMenuTarget);
+                            hideContextMenu();
+                        }
+                    });
+                }
+
+                if (collapseSubfolderBtn) {
+                    collapseSubfolderBtn.addEventListener('click', () => {
+                        if (contextMenuTarget) {
+                            collapseSubFolders(contextMenuTarget);
+                            hideContextMenu();
+                        }
+                    });
+                }
+            });
+
+            // 초기 경로 수신
+            ipcRenderer.on('init-folder-path', (event, path) => {
+                document.getElementById('folder-path').value = path || '';
+            });
+
+            // 폴더 선택 결과 수신
+            ipcRenderer.on('selected-folder', (event, path) => {
+                if (path) {
+                    document.getElementById('folder-path').value = path;
+                }
+            });
+
+            // 트리 노드 토글 함수
+            function toggleTreeFolder(event) {
+                const folderContent = event.currentTarget.nextElementSibling;
+                folderContent.classList.toggle('open');
+
+                const toggleIcon =
+                    event.currentTarget.querySelector('.tree-toggle');
+                if (folderContent.classList.contains('open')) {
+                    toggleIcon.textContent = '▼';
+                } else {
+                    toggleIcon.textContent = '►';
+                }
+            }
+
+            // 폴더 열기 함수
+            function openFolder(folderPath) {
+                ipcRenderer.send('open-containing-folder', folderPath);
+            }
+
+            // 파일을 폴더 구조로 그룹화하는 함수
+            function groupFilesByFolder(files, basePath) {
+                const tree = {
+                    _files: [],
+                    _path: basePath,
+                };
+
+                files.forEach((file) => {
+                    try {
+                        // 기본 경로에 대한 상대 경로 구하기
+                        let relativePath = file;
+                        if (file.startsWith(basePath)) {
+                            relativePath = file.substring(basePath.length);
+                            if (
+                                relativePath.startsWith('/') ||
+                                relativePath.startsWith('\\')
+                            ) {
+                                relativePath = relativePath.substring(1);
+                            }
+                        }
+
+                        // 경로 구분자 표준화
+                        const normalizedPath = relativePath.replace(/\\/g, '/');
+                        const parts = normalizedPath.split('/');
+
+                        // 파일 이름은 경로의 마지막 부분
+                        const fileName = parts.pop();
+
+                        // 현재 트리 레벨 참조
+                        let currentLevel = tree;
+
+                        // 각 폴더 레벨에 대해 트리 구조 생성
+                        parts.forEach((part) => {
+                            if (!part) return; // 빈 문자열 무시
+
+                            if (!currentLevel[part]) {
+                                const pathSoFar = parts.slice(
+                                    0,
+                                    parts.indexOf(part) + 1
+                                );
+                                currentLevel[part] = {
+                                    _files: [],
+                                    _path: path.join(basePath, ...pathSoFar),
+                                };
+                            }
+                            currentLevel = currentLevel[part];
+                        });
+
+                        // 현재 레벨(폴더)에 파일 추가
+                        currentLevel._files.push({
+                            name: fileName,
+                            path: file,
+                        });
+                    } catch (error) {
+                        console.error(`Error processing file ${file}:`, error);
+                    }
+                });
+
+                return tree;
+            }
+
+            // 선택된 항목 참조를 저장할 변수
+            let selectedElement = null;
+
+            // 항목 선택 함수
+            function selectItem(element) {
+                // 이전에 선택된 항목이 있으면 선택 해제
+                if (selectedElement) {
+                    selectedElement.classList.remove('selected');
+                }
+
+                // 새 항목 선택
+                element.classList.add('selected');
+                selectedElement = element;
+            }
+
+            // 트리 구조를 HTML로 렌더링하는 함수 수정
+            function renderTree(tree, parentElement) {
+                try {
+                    // 루트 레벨 파일 처리
+                    const rootFiles = tree._files || [];
+                    rootFiles.forEach((file) => {
+                        try {
+                            const fileElement = document.createElement('div');
+                            fileElement.className = 'tree-item-file';
+                            fileElement.innerHTML = `
+          <span class="tree-item-icon">📄</span>
+          <span class="tree-item-name">${file.name}</span>
+        `;
+
+                            // 파일 클릭 이벤트
+                            fileElement.addEventListener('click', (event) => {
+                                // 항목 선택 표시
+                                selectItem(fileElement);
+
+                                // 파일이 위치한 폴더 열기
+                                openFolder(path.dirname(file.path));
+
+                                // 이벤트 버블링 방지
+                                event.stopPropagation();
+                            });
+
+                            // 파일 요소 렌더링 시
+                            fileElement.addEventListener(
+                                'contextmenu',
+                                (event) => {
+                                    // 항목 선택 표시
+                                    selectItem(fileElement);
+
+                                    // 컨텍스트 메뉴 표시
+                                    showFileContextMenu(event, file.path);
+
+                                    // 이벤트 버블링 방지
+                                    event.stopPropagation();
+                                }
+                            );
+
+                            // 툴팁 추가
+                            fileElement.title = `${file.path} (클릭하면 폴더를 엽니다)`;
+
+                            parentElement.appendChild(fileElement);
+                        } catch (error) {
+                            console.error(`Error rendering file:`, error);
+                        }
+                    });
+
+                    // 폴더 처리
+                    for (const folderName in tree) {
+                        try {
+                            if (
+                                folderName === '_files' ||
+                                folderName === '_path'
+                            )
+                                continue;
+
+                            const folderElement = document.createElement('div');
+                            folderElement.className = 'tree-folder';
+
+                            const folderHeader = document.createElement('div');
+                            folderHeader.className = 'tree-folder-header';
+                            folderHeader.innerHTML = `
+          <span class="tree-toggle">►</span>
+          <span class="tree-folder-icon">📁</span>
+          <span class="tree-folder-name">${folderName}</span>
+        `;
+
+                            // 폴더 헤더 클릭 이벤트 (토글)
+                            folderHeader.addEventListener('click', (event) => {
+                                // 항목 선택 표시
+                                selectItem(folderHeader);
+
+                                // 폴더 토글
+                                toggleTreeFolder(event);
+
+                                // 이벤트 버블링 방지
+                                event.stopPropagation();
+                            });
+
+                            // 폴더 더블클릭 이벤트
+                            folderHeader.addEventListener(
+                                'dblclick',
+                                (event) => {
+                                    // 폴더 열기
+                                    openFolder(tree[folderName]._path);
+
+                                    // 이벤트 버블링 방지
+                                    event.stopPropagation();
+                                }
+                            );
+
+                            // 폴더 헤더 렌더링 시
+                            folderHeader.addEventListener(
+                                'contextmenu',
+                                (event) => {
+                                    // 항목 선택 표시
+                                    selectItem(folderHeader);
+
+                                    // 컨텍스트 메뉴 표시
+                                    showFolderContextMenu(
+                                        event,
+                                        folderHeader,
+                                        tree[folderName]._path
+                                    );
+
+                                    // 이벤트 버블링 방지
+                                    event.stopPropagation();
+                                }
+                            );
+
+                            const folderContent = document.createElement('div');
+                            folderContent.className = 'tree-folder-content';
+
+                            // 하위 폴더 처리
+                            renderTree(tree[folderName], folderContent);
+
+                            folderElement.appendChild(folderHeader);
+                            folderElement.appendChild(folderContent);
+                            parentElement.appendChild(folderElement);
+                        } catch (error) {
+                            console.error(
+                                `Error rendering folder ${folderName}:`,
+                                error
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error rendering tree:', error);
+                    parentElement.innerHTML =
+                        '<div class="tree-item">트리 렌더링 중 오류가 발생했습니다.</div>';
+                }
+            }
+
+            // 검색 결과 수신
+            ipcRenderer.on('search-results', (event, files) => {
+                const resultsContainer =
+                    document.getElementById('results-container');
+                const treeView = document.getElementById('tree-view');
+                const resultCount = document.getElementById('result-count');
+
+                treeView.innerHTML = '';
+
+                if (files.length > 0) {
+                    try {
+                        // 결과 수 표시
+                        resultCount.textContent = `${files.length}개 파일 찾음`;
+
+                        // 기준 경로 (검색 시작 폴더)
+                        const basePath =
+                            document.getElementById('folder-path').value;
+
+                        // 파일들을 폴더 구조로 그룹화
+                        const fileTree = groupFilesByFolder(files, basePath);
+
+                        // 트리 렌더링
+                        renderTree(fileTree, treeView);
+
+                        // 루트 레벨 폴더만 펼치기 (첫 번째 레벨)
+                        const rootFolders = treeView.querySelectorAll(
+                            ':scope > .tree-folder > .tree-folder-header'
+                        );
+                        rootFolders.forEach((header) => {
+                            // 첫 번째 레벨의 폴더만 펼치기
+                            header.click();
+                        });
+                    } catch (error) {
+                        console.error(
+                            'Error processing search results:',
+                            error
+                        );
+                        treeView.innerHTML =
+                            '<div class="tree-item">검색 결과 처리 중 오류가 발생했습니다.</div>';
+                    }
+                } else {
+                    resultCount.textContent = '0개 파일 찾음';
+                    treeView.innerHTML =
+                        '<div class="tree-item">일치하는 파일이 없습니다.</div>';
+                }
+
+                resultsContainer.classList.add('visible');
+            });
+        </script>
+    </body>
+</html>

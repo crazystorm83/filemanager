@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>파일 관리자</title>
+        <meta
+            http-equiv="Content-Security-Policy"
+            content="script-src 'self' 'unsafe-inline';" />
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                    Roboto, Helvetica, Arial, sans-serif;
+                margin: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>파일 관리자</h1>
+        <p>파일 관리자 애플리케이션에 오신 것을 환영합니다.</p>
+
+        <div>
+            <p>Chrome 버전: <span id="chrome-version"></span></p>
+            <p>Node 버전: <span id="node-version"></span></p>
+            <p>Electron 버전: <span id="electron-version"></span></p>
+        </div>
+
+        <script>
+            // 찾기 및 바꾸기 기능 처리
+            const { ipcRenderer } = require('electron');
+
+            // 찾기 기능 처리
+            ipcRenderer.on('open-file-finder', () => {
+                ipcRenderer.send('open-file-finder');
+            });
+
+            ipcRenderer.on('open-file-replace', () => {
+                ipcRenderer.send('open-file-replace');
+            });
+
+            // 파일 검색 결과 처리
+            ipcRenderer.on('file-search-results', (event, files) => {
+                const resultsDiv = document.getElementById('search-results');
+                const fileList = document.getElementById('file-list');
+
+                // 결과 목록 초기화
+                fileList.innerHTML = '';
+
+                if (files.length > 0) {
+                    // 결과 목록에 파일 추가
+                    files.forEach((file) => {
+                        const li = document.createElement('li');
+                        li.textContent = file;
+                        fileList.appendChild(li);
+                    });
+
+                    // 결과 영역 표시
+                    resultsDiv.style.display = 'block';
+                } else {
+                    // 결과가 없는 경우
+                    const li = document.createElement('li');
+                    li.textContent = '일치하는 파일이 없습니다.';
+                    fileList.appendChild(li);
+                    resultsDiv.style.display = 'block';
+                }
+            });
+
+            ipcRenderer.on('find-in-page', () => {
+                console.log('찾기 기능 실행');
+                // 찾기 기능 구현
+            });
+
+            ipcRenderer.on('find-next', () => {
+                console.log('다음 찾기 실행');
+                // 다음 찾기 기능 구현
+            });
+
+            ipcRenderer.on('find-previous', () => {
+                console.log('이전 찾기 실행');
+                // 이전 찾기 기능 구현
+            });
+
+            ipcRenderer.on('find-replace', () => {
+                console.log('찾기 & 바꾸기 실행');
+                // 찾기 & 바꾸기 기능 구현
+            });
+        </script>
+    </body>
+</html>

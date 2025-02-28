@@ -1,0 +1,49 @@
+{
+    "name": "file_manager",
+    "version": "1.0.0",
+    "main": "dist/main.js",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc -w",
+        "start": "npm run build && electron .",
+        "package": "npm run build && electron-builder"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "devDependencies": {
+        "@types/electron": "^1.4.38",
+        "@types/node": "^22.13.5",
+        "@types/plist": "^3.0.5",
+        "electron": "^34.3.0",
+        "electron-builder": "^25.1.8",
+        "glob": "^11.0.1",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.7.3"
+    },
+    "build": {
+        "appId": "com.yourname.filemanager",
+        "productName": "File Manager",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "dist/**/*",
+            "node_modules/**/*",
+            "package.json"
+        ],
+        "win": {
+            "target": "nsis"
+        },
+        "mac": {
+            "target": "dmg"
+        },
+        "linux": {
+            "target": "AppImage"
+        }
+    },
+    "dependencies": {
+        "xlsx": "^0.18.5"
+    }
+}
