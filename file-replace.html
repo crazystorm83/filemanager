@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>파일명 찾기 & 바꾸기</title>
+        <link
+            rel="stylesheet"
+            href="styles/file-dialog.css" />
+        <style>
+            .rename-options {
+                margin: 10px 0;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+
+            .radio-group {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 8px;
+                margin: 5px 0;
+            }
+
+            .radio-option {
+                flex: 1;
+                min-width: 200px;
+                margin: 0;
+                padding: 5px;
+                border: 1px solid transparent;
+                border-radius: 4px;
+            }
+
+            .radio-option:hover {
+                background-color: #f8f8f8;
+            }
+
+            .radio-option.active {
+                border-color: #0078d7;
+                background-color: #f0f7ff;
+            }
+
+            .option-content {
+                margin: 5px 0 0 20px;
+                display: none;
+            }
+
+            .option-content.visible {
+                display: block;
+            }
+
+            .file-input-wrapper {
+                display: flex;
+                gap: 4px;
+            }
+
+            .file-input-wrapper input[type='text'] {
+                flex: 1;
+                height: 24px;
+                font-size: 12px;
+            }
+
+            .file-input-wrapper button {
+                padding: 2px 8px;
+                font-size: 12px;
+                white-space: nowrap;
+            }
+
+            /* 라디오 버튼과 레이블 스타일 */
+            .radio-option input[type='radio'] {
+                margin-right: 5px;
+            }
+
+            .radio-option label {
+                font-weight: normal;
+                margin-bottom: 0;
+            }
+
+            #rename-text-input {
+                width: 100%;
+                height: 24px;
+                font-size: 12px;
+                padding: 2px 5px;
+            }
+
+            /* 트리 뷰 스타일 추가 */
+            .tree {
+                margin: 10px 0;
+                padding: 0;
+            }
+
+            .tree-item {
+                padding: 3px 5px;
+            }
+
+            .tree-item-file {
+                display: flex;
+                align-items: center;
+                padding: 3px 5px;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+
+            .tree-item-file:hover {
+                background-color: #f0f0f0;
+            }
+
+            .tree-item-file.selected {
+                background-color: #e6f2ff;
+                border-left: 3px solid #0078d7;
+            }
+
+            .tree-folder {
+                margin: 2px 0;
+            }
+
+            .tree-folder-header {
+                display: flex;
+                align-items: center;
+                padding: 3px 5px;
+                cursor: pointer;
+                border-radius: 4px;
+            }
+
+            .tree-folder-header:hover {
+                background-color: #f0f0f0;
+            }
+
+            .tree-folder-content {
+                margin-left: 20px;
+                display: none;
+            }
+
+            .tree-folder-content.open {
+                display: block;
+            }
+
+            .tree-toggle {
+                width: 16px;
+                text-align: center;
+                margin-right: 5px;
+            }
+
+            .tree-item-icon,
+            .tree-folder-icon {
+                margin-right: 5px;
+            }
+
+            .results-area {
+                max-height: 400px;
+                overflow-y: auto;
+                margin-top: 15px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 10px;
+            }
+
+            .results-area.visible {
+                display: block;
+            }
+
+            .results-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 10px;
+            }
+
+            .results-header h3 {
+                margin: 0;
+            }
+
+            .tree-controls {
+                display: flex;
+                gap: 8px;
+            }
+
+            .tree-control-btn {
+                font-size: 12px;
+                padding: 4px 8px;
+                background-color: #f0f0f0;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                cursor: pointer;
+            }
+
+            .tree-control-btn:hover {
+                background-color: #e0e0e0;
+            }
+
+            .small-input {
+                width: 80px;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                box-sizing: border-box;
+            }
+
+            /* 탭 스타일 추가 */
+            .tabs {
+                display: flex;
+                border-bottom: 1px solid #ddd;
+                margin-bottom: 10px;
+            }
+
+            .tab {
+                padding: 8px 16px;
+                cursor: pointer;
+                border: 1px solid transparent;
+                border-bottom: none;
+                border-radius: 4px 4px 0 0;
+                margin-right: 4px;
+                background-color: #f5f5f5;
+            }
+
+            .tab.active {
+                background-color: white;
+                border-color: #ddd;
+                margin-bottom: -1px;
+                padding-bottom: 9px;
+            }
+
+            .tab-content {
+                display: none;
+            }
+
+            .tab-content.active {
+                display: block;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>파일명 찾기 & 바꾸기</h2>
+
+            <!-- 폴더 경로 입력 영역 -->
+            <div class="form-group">
+                <label for="folder-path">폴더 경로:</label>
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="folder-path"
+                        placeholder="검색할 폴더 경로를 입력하세요" />
+                    <button
+                        class="browse-btn"
+                        id="btn-browse">
+                        찾아보기...
+                    </button>
+                </div>
+            </div>
+
+            <!-- 시스템 폴더 바로가기 -->
+            <div class="folder-shortcut">
+                <button id="btn-desktop">바탕화면</button>
+                <button id="btn-documents">문서</button>
+                <button id="btn-downloads">다운로드</button>
+                <button id="btn-pictures">사진</button>
+                <button id="btn-music">음악</button>
+                <button id="btn-videos">비디오</button>
+                <button id="btn-appdata">AppData</button>
+            </div>
+
+            <!-- 찾을 파일 입력 영역 -->
+            <div class="form-group">
+                <label for="file-pattern">찾을 파일:</label>
+                <input
+                    type="text"
+                    id="file-pattern"
+                    placeholder="파일명 또는 패턴 (예: *.txt)" />
+            </div>
+            <div class="form-group">
+                <label for="search-timeout">검색 제한 시간 (초):</label>
+                <input
+                    type="number"
+                    id="search-timeout"
+                    value="30"
+                    min="1"
+                    max="300"
+                    class="small-input" />
+            </div>
+
+            <!-- 파일명 변경 옵션 -->
+            <div class="rename-options">
+                <label style="font-size: 12px; color: #666"
+                    >파일명 변경 방식:</label
+                >
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input
+                            type="radio"
+                            id="rename-none"
+                            name="rename-type"
+                            value="none"
+                            checked />
+                        <label for="rename-none">사용안함</label>
+                    </div>
+
+                    <div class="radio-option">
+                        <input
+                            type="radio"
+                            id="rename-text"
+                            name="rename-type"
+                            value="text" />
+                        <label for="rename-text">텍스트 입력</label>
+                        <div
+                            id="text-input-content"
+                            class="option-content">
+                            <input
+                                type="text"
+                                id="rename-text-input"
+                                placeholder="변경할 텍스트 입력" />
+                        </div>
+                    </div>
+
+                    <div class="radio-option">
+                        <input
+                            type="radio"
+                            id="rename-textfile"
+                            name="rename-type"
+                            value="textfile" />
+                        <label for="rename-textfile">텍스트 파일</label>
+                        <div
+                            id="textfile-input-content"
+                            class="option-content">
+                            <div class="file-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="rename-textfile-input"
+                                    placeholder="텍스트 파일 선택"
+                                    readonly />
+                                <button id="btn-browse-textfile">찾기</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="radio-option">
+                        <input
+                            type="radio"
+                            id="rename-excel"
+                            name="rename-type"
+                            value="excel" />
+                        <label for="rename-excel">엑셀 파일</label>
+                        <div
+                            id="excel-input-content"
+                            class="option-content">
+                            <div class="file-input-wrapper">
+                                <input
+                                    type="text"
+                                    id="rename-excel-input"
+                                    placeholder="엑셀 파일 선택"
+                                    readonly />
+                                <button id="btn-browse-excel">찾기</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 검색 결과 영역 -->
+            <div
+                class="results-area"
+                id="results-container">
+                <div class="tabs">
+                    <div
+                        class="tab active"
+                        data-tab="search">
+                        찾기 검색 결과
+                    </div>
+                    <div
+                        class="tab"
+                        data-tab="replace">
+                        바꾸기 검색 결과
+                    </div>
+                </div>
+                <div
+                    class="tab-content active"
+                    id="search-results">
+                    <div class="results-header">
+                        <h3>
+                            검색 결과:
+                            <span
+                                id="result-count"
+                                class="result-count"></span>
+                        </h3>
+                        <div class="tree-controls">
+                            <button
+                                id="expand-all"
+                                class="tree-control-btn">
+                                전체 펼치기
+                            </button>
+                            <button
+                                id="collapse-all"
+                                class="tree-control-btn">
+                                전체 접기
+                            </button>
+                        </div>
+                    </div>
+                    <div
+                        id="tree-view"
+                        class="tree"></div>
+                </div>
+                <div
+                    class="tab-content"
+                    id="replace-results">
+                    <div class="results-header">
+                        <h3>
+                            바꾸기 결과:
+                            <span
+                                id="replace-count"
+                                class="result-count"></span>
+                        </h3>
+                        <div class="tree-controls">
+                            <button
+                                id="expand-all-replace"
+                                class="tree-control-btn">
+                                전체 펼치기
+                            </button>
+                            <button
+                                id="collapse-all-replace"
+                                class="tree-control-btn">
+                                전체 접기
+                            </button>
+                        </div>
+                    </div>
+                    <div
+                        id="replace-tree-view"
+                        class="tree"></div>
+                </div>
+            </div>
+
+            <!-- 버튼 그룹 -->
+            <div class="button-group">
+                <button
+                    class="secondary"
+                    id="btn-close">
+                    닫기
+                </button>
+                <button
+                    class="primary"
+                    id="btn-find">
+                    찾기
+                </button>
+                <button
+                    class="primary"
+                    id="btn-replace">
+                    바꾸기
+                </button>
+            </div>
+        </div>
+
+        <script>
+            const { ipcRenderer } = require('electron');
+            const path = require('path'); // path 모듈 추가
+
+            // 라디오 버튼 변경 이벤트 처리 수정
+            document
+                .querySelectorAll('input[name="rename-type"]')
+                .forEach((radio) => {
+                    radio.addEventListener('change', (e) => {
+                        // 모든 옵션 콘텐츠와 radio-option 비활성화
+                        document
+                            .querySelectorAll('.option-content')
+                            .forEach((content) => {
+                                content.classList.remove('visible');
+                            });
+                        document
+                            .querySelectorAll('.radio-option')
+                            .forEach((option) => {
+                                option.classList.remove('active');
+                            });
+
+                        // 선택된 옵션의 콘텐츠만 표시
+                        const selectedContent = document.getElementById(
+                            `${e.target.value}-input-content`
+                        );
+                        const selectedOption =
+                            e.target.closest('.radio-option');
+                        if (selectedContent) {
+                            selectedContent.classList.add('visible');
+                        }
+                        if (selectedOption) {
+                            selectedOption.classList.add('active');
+                        }
+                    });
+                });
+
+            // 초기 선택된 라디오 옵션 활성화
+            document
+                .querySelector('input[name="rename-type"]:checked')
+                ?.closest('.radio-option')
+                ?.classList.add('active');
+
+            // 폴더 찾아보기 버튼
+            document
+                .getElementById('btn-browse')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('open-folder-dialog');
+                });
+
+            // 텍스트 파일 찾아보기 버튼
+            document
+                .getElementById('btn-browse-textfile')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('open-file-dialog', {
+                        type: 'text',
+                        extensions: ['txt'],
+                    });
+                });
+
+            // 엑셀 파일 찾아보기 버튼
+            document
+                .getElementById('btn-browse-excel')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('open-file-dialog', {
+                        type: 'excel',
+                        extensions: ['xlsx', 'xls'],
+                    });
+                });
+
+            // 시스템 폴더 버튼들
+            document
+                .getElementById('btn-desktop')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'desktop');
+                });
+
+            document
+                .getElementById('btn-documents')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'documents');
+                });
+
+            document
+                .getElementById('btn-downloads')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'downloads');
+                });
+
+            document
+                .getElementById('btn-pictures')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'pictures');
+                });
+
+            document
+                .getElementById('btn-music')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'music');
+                });
+
+            document
+                .getElementById('btn-videos')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'videos');
+                });
+
+            document
+                .getElementById('btn-appdata')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('get-system-folder', 'appData');
+                });
+
+            // 검색 제한시간 초과 이벤트 수신 처리 수정
+            ipcRenderer.on('search-timeout', (event, data) => {
+                const { files, elapsedTime, lastSearchPath } = data;
+                const continueSearch = confirm(
+                    `검색 제한시간(${elapsedTime}초)이 초과되었습니다.\n` +
+                        `현재까지 ${files.length}개의 파일을 찾았습니다.\n` +
+                        `마지막 검색 위치: ${lastSearchPath}\n\n` +
+                        `계속 검색하시겠습니까?\n` +
+                        `- 확인: 마지막 위치부터 검색 계속\n` +
+                        `- 취소: 현재까지 찾은 결과 표시`
+                );
+
+                // 사용자 선택 결과를 main 프로세스로 전송
+                ipcRenderer.send('search-timeout-response', {
+                    continueSearch,
+                    lastSearchPath,
+                });
+
+                // 검색 계속하는 경우 상태 표시 업데이트
+                if (continueSearch) {
+                    const treeView = document.getElementById('tree-view');
+                    treeView.innerHTML =
+                        '<div class="tree-item">검색 계속 중...<br>마지막 검색 위치: ' +
+                        lastSearchPath +
+                        '</div>';
+                }
+            });
+
+            // 검색 중 상태 표시 개선
+            document
+                .getElementById('btn-find')
+                .addEventListener('click', () => {
+                    const folderPath =
+                        document.getElementById('folder-path').value;
+                    const filePattern =
+                        document.getElementById('file-pattern').value;
+                    const timeoutSeconds =
+                        parseInt(
+                            document.getElementById('search-timeout').value
+                        ) || 30;
+
+                    if (folderPath && filePattern) {
+                        // 검색 시작 시 결과 영역 초기화
+                        const resultsContainer =
+                            document.getElementById('results-container');
+                        const treeView = document.getElementById('tree-view');
+                        const resultCount =
+                            document.getElementById('result-count');
+
+                        // 검색 중임을 표시
+                        treeView.innerHTML =
+                            '<div class="tree-item">검색 중...<br>제한시간: ' +
+                            timeoutSeconds +
+                            '초</div>';
+                        resultCount.textContent = '';
+                        resultsContainer.classList.add('visible');
+
+                        // 검색 요청 전송 (초기 검색 시에는 lastSearchPath를 undefined로 설정)
+                        ipcRenderer.send('find-files', {
+                            folderPath,
+                            filePattern,
+                            timeoutSeconds,
+                            lastSearchPath: undefined,
+                        });
+                    } else {
+                        alert('폴더 경로와 찾을 파일을 모두 입력해주세요.');
+                    }
+                });
+
+            // 닫기 버튼 클릭 이벤트
+            document
+                .getElementById('btn-close')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('close-file-replace');
+                });
+
+            // 엔터 키 이벤트 처리
+            document
+                .getElementById('file-pattern')
+                .addEventListener('keypress', (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        document.getElementById('btn-find').click();
+                    }
+                });
+
+            // 초기 경로 수신
+            ipcRenderer.on('init-folder-path', (event, path) => {
+                document.getElementById('folder-path').value = path || '';
+            });
+
+            // 폴더 선택 결과 수신
+            ipcRenderer.on('selected-folder', (event, path) => {
+                if (path) {
+                    document.getElementById('folder-path').value = path;
+                }
+            });
+
+            // 파일 선택 결과 수신
+            ipcRenderer.on('selected-file', (event, data) => {
+                if (data.path) {
+                    switch (data.type) {
+                        case 'text':
+                            document.getElementById(
+                                'rename-textfile-input'
+                            ).value = data.path;
+                            break;
+                        case 'excel':
+                            document.getElementById(
+                                'rename-excel-input'
+                            ).value = data.path;
+                            break;
+                    }
+                }
+            });
+
+            // 바꾸기 버튼 클릭 이벤트
+            document
+                .getElementById('btn-replace')
+                .addEventListener('click', () => {
+                    const selectedFiles = getSelectedFiles(); // 선택된 파일들 가져오기
+                    if (!selectedFiles || selectedFiles.length === 0) {
+                        alert('변경할 파일을 선택해주세요.');
+                        return;
+                    }
+
+                    // 선택된 라디오 버튼 확인
+                    const selectedType = document.querySelector(
+                        'input[name="rename-type"]:checked'
+                    ).value;
+
+                    // 사용안함 옵션이 선택된 경우
+                    if (selectedType === 'none') {
+                        alert('파일명 변경 방식을 선택해주세요.');
+                        return;
+                    }
+
+                    let renameValue = '';
+
+                    switch (selectedType) {
+                        case 'text':
+                            renameValue =
+                                document.getElementById(
+                                    'rename-text-input'
+                                ).value;
+                            if (!renameValue) {
+                                alert('변경할 텍스트를 입력해주세요.');
+                                return;
+                            }
+                            break;
+
+                        case 'textfile':
+                            renameValue = document.getElementById(
+                                'rename-textfile-input'
+                            ).value;
+                            if (!renameValue) {
+                                alert('텍스트 파일을 선택해주세요.');
+                                return;
+                            }
+                            break;
+
+                        case 'excel':
+                            renameValue =
+                                document.getElementById(
+                                    'rename-excel-input'
+                                ).value;
+                            if (!renameValue) {
+                                alert('엑셀 파일을 선택해주세요.');
+                                return;
+                            }
+                            break;
+                    }
+
+                    // 확인 대화상자 표시
+                    const confirmMessage = `선택한 ${selectedFiles.length}개의 파일명을 변경하시겠습니까?`;
+                    if (confirm(confirmMessage)) {
+                        // 파일명 변경 요청
+                        ipcRenderer.send('rename-files', {
+                            files: selectedFiles,
+                            renameType: selectedType,
+                            renameValue: renameValue,
+                        });
+                    }
+                });
+
+            // 파일명 변경 결과 수신
+            ipcRenderer.on('rename-results', (event, results) => {
+                const successCount = results.filter((r) => r.success).length;
+                const failCount = results.length - successCount;
+
+                let message = `파일명 변경 완료\n성공: ${successCount}개`;
+                if (failCount > 0) {
+                    message += `\n실패: ${failCount}개`;
+
+                    // 실패한 항목들의 상세 정보 표시
+                    const failedItems = results.filter((r) => !r.success);
+                    message += '\n\n실패한 항목:';
+                    failedItems.forEach((item) => {
+                        message += `\n${item.oldPath}\n=> ${item.error}`;
+                    });
+                }
+
+                alert(message);
+
+                // 변경 후 파일 목록 새로고침
+                document.getElementById('btn-find').click();
+            });
+
+            // 파일명 변경 오류 수신
+            ipcRenderer.on('rename-error', (event, errorMessage) => {
+                alert('파일명 변경 중 오류가 발생했습니다:\n' + errorMessage);
+            });
+
+            // 선택된 파일 목록 가져오기 함수
+            function getSelectedFiles() {
+                const selectedElements = document.querySelectorAll(
+                    '.tree-item-file.selected'
+                );
+                return Array.from(selectedElements).map((el) => {
+                    // 데이터 속성이나 다른 방법으로 저장된 파일 경로 가져오기
+                    return el.dataset.path;
+                });
+            }
+
+            // 검색 결과 수신 및 표시
+            ipcRenderer.on('search-results', (event, files) => {
+                const resultsContainer =
+                    document.getElementById('results-container');
+                const treeView = document.getElementById('tree-view');
+                const resultCount = document.getElementById('result-count');
+
+                // 결과 영역 초기화
+                treeView.innerHTML = '';
+
+                if (files.length > 0) {
+                    try {
+                        // 결과 수 표시
+                        resultCount.textContent = `${files.length}개 파일 찾음`;
+
+                        // 기준 경로 (검색 시작 폴더)
+                        const basePath =
+                            document.getElementById('folder-path').value;
+
+                        // 파일들을 폴더 구조로 그룹화
+                        const fileTree = groupFilesByFolder(files, basePath);
+
+                        // 트리 렌더링
+                        renderTree(fileTree, treeView);
+                    } catch (error) {
+                        console.error(
+                            'Error processing search results:',
+                            error
+                        );
+                        treeView.innerHTML =
+                            '<div class="tree-item">검색 결과 처리 중 오류가 발생했습니다.</div>';
+                    }
+                } else {
+                    resultCount.textContent = '0개 파일 찾음';
+                    treeView.innerHTML =
+                        '<div class="tree-item">일치하는 파일이 없습니다.</div>';
+                }
+
+                // 결과 영역이 보이도록 유지
+                resultsContainer.classList.add('visible');
+            });
+
+            // 파일들을 폴더 구조로 그룹화하는 함수
+            function groupFilesByFolder(files, basePath) {
+                const tree = {
+                    _files: [],
+                    _path: basePath,
+                };
+
+                files.forEach((file) => {
+                    try {
+                        // 기본 경로에 대한 상대 경로 구하기
+                        let relativePath = file;
+                        if (file.startsWith(basePath)) {
+                            relativePath = file.substring(basePath.length);
+                            if (
+                                relativePath.startsWith('/') ||
+                                relativePath.startsWith('\\')
+                            ) {
+                                relativePath = relativePath.substring(1);
+                            }
+                        }
+
+                        // 경로 구분자 표준화
+                        const normalizedPath = relativePath.replace(/\\/g, '/');
+                        const parts = normalizedPath.split('/');
+
+                        // 파일 이름은 경로의 마지막 부분
+                        const fileName = parts.pop();
+
+                        // 현재 트리 레벨 참조
+                        let currentLevel = tree;
+
+                        // 각 폴더 레벨에 대해 트리 구조 생성
+                        parts.forEach((part) => {
+                            if (!part) return; // 빈 문자열 무시
+
+                            if (!currentLevel[part]) {
+                                const pathSoFar = parts.slice(
+                                    0,
+                                    parts.indexOf(part) + 1
+                                );
+                                currentLevel[part] = {
+                                    _files: [],
+                                    _path: path.join(basePath, ...pathSoFar),
+                                };
+                            }
+                            currentLevel = currentLevel[part];
+                        });
+
+                        // 현재 레벨(폴더)에 파일 추가
+                        currentLevel._files.push({
+                            name: fileName,
+                            path: file,
+                        });
+                    } catch (error) {
+                        console.error(`Error processing file ${file}:`, error);
+                    }
+                });
+
+                return tree;
+            }
+
+            // 트리 구조를 HTML로 렌더링하는 함수
+            function renderTree(tree, parentElement) {
+                try {
+                    // 루트 레벨 파일 처리
+                    const rootFiles = tree._files || [];
+                    rootFiles.forEach((file) => {
+                        try {
+                            const fileElement = document.createElement('div');
+                            fileElement.className = 'tree-item-file';
+                            fileElement.dataset.path = file.path; // 파일 경로 저장
+                            fileElement.innerHTML = `
+                                <span class="tree-item-icon">📄</span>
+                                <span class="tree-item-name">${file.name}</span>
+                            `;
+
+                            // 파일 클릭 이벤트
+                            fileElement.addEventListener('click', (event) => {
+                                // 다른 선택된 항목들의 선택 해제
+                                document
+                                    .querySelectorAll(
+                                        '.tree-item-file.selected'
+                                    )
+                                    .forEach((el) => {
+                                        if (el !== fileElement) {
+                                            el.classList.remove('selected');
+                                        }
+                                    });
+
+                                // 현재 항목 선택 토글
+                                fileElement.classList.toggle('selected');
+                                event.stopPropagation();
+                            });
+
+                            // 툴팁 추가
+                            fileElement.title = file.path;
+
+                            parentElement.appendChild(fileElement);
+                        } catch (error) {
+                            console.error(`Error rendering file:`, error);
+                        }
+                    });
+
+                    // 폴더 처리
+                    for (const folderName in tree) {
+                        if (folderName === '_files' || folderName === '_path')
+                            continue;
+
+                        try {
+                            const folderElement = document.createElement('div');
+                            folderElement.className = 'tree-folder';
+
+                            const folderHeader = document.createElement('div');
+                            folderHeader.className = 'tree-folder-header';
+                            folderHeader.innerHTML = `
+                                <span class="tree-toggle">►</span>
+                                <span class="tree-folder-icon">📁</span>
+                                <span class="tree-folder-name">${folderName}</span>
+                            `;
+
+                            // 폴더 토글 이벤트
+                            folderHeader.addEventListener('click', (event) => {
+                                const folderContent =
+                                    folderHeader.nextElementSibling;
+                                folderContent.classList.toggle('open');
+
+                                const toggleIcon =
+                                    folderHeader.querySelector('.tree-toggle');
+                                toggleIcon.textContent =
+                                    folderContent.classList.contains('open')
+                                        ? '▼'
+                                        : '►';
+
+                                event.stopPropagation();
+                            });
+
+                            const folderContent = document.createElement('div');
+                            folderContent.className = 'tree-folder-content';
+
+                            // 하위 폴더와 파일 처리
+                            renderTree(tree[folderName], folderContent);
+
+                            folderElement.appendChild(folderHeader);
+                            folderElement.appendChild(folderContent);
+                            parentElement.appendChild(folderElement);
+                        } catch (error) {
+                            console.error(
+                                `Error rendering folder ${folderName}:`,
+                                error
+                            );
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error rendering tree:', error);
+                    parentElement.innerHTML =
+                        '<div class="tree-item">트리 렌더링 중 오류가 발생했습니다.</div>';
+                }
+            }
+
+            // 폴더 전체 펼치기 함수
+            function expandAllFolders() {
+                const folderContents = document.querySelectorAll(
+                    '.tree-folder-content'
+                );
+                const toggleIcons = document.querySelectorAll('.tree-toggle');
+
+                folderContents.forEach((content) => {
+                    content.classList.add('open');
+                });
+
+                toggleIcons.forEach((icon) => {
+                    icon.textContent = '▼';
+                });
+            }
+
+            // 폴더 전체 접기 함수
+            function collapseAllFolders() {
+                const folderContents = document.querySelectorAll(
+                    '.tree-folder-content'
+                );
+                const toggleIcons = document.querySelectorAll('.tree-toggle');
+
+                folderContents.forEach((content) => {
+                    content.classList.remove('open');
+                });
+
+                toggleIcons.forEach((icon) => {
+                    icon.textContent = '►';
+                });
+            }
+
+            // 전체 펼치기/접기 버튼 이벤트 리스너 등록
+            document.addEventListener('DOMContentLoaded', () => {
+                // 버튼 요소가 로드된 후에 이벤트 바인딩
+                const expandAllBtn = document.getElementById('expand-all');
+                const collapseAllBtn = document.getElementById('collapse-all');
+
+                if (expandAllBtn) {
+                    expandAllBtn.addEventListener('click', expandAllFolders);
+                }
+
+                if (collapseAllBtn) {
+                    collapseAllBtn.addEventListener(
+                        'click',
+                        collapseAllFolders
+                    );
+                }
+            });
+
+            // 탭 전환 이벤트 리스너 추가
+            document.addEventListener('DOMContentLoaded', () => {
+                // 기존 이벤트 리스너들...
+
+                // 탭 전환 기능
+                const tabs = document.querySelectorAll('.tab');
+                tabs.forEach((tab) => {
+                    tab.addEventListener('click', () => {
+                        // 모든 탭과 컨텐츠의 active 클래스 제거
+                        document
+                            .querySelectorAll('.tab')
+                            .forEach((t) => t.classList.remove('active'));
+                        document
+                            .querySelectorAll('.tab-content')
+                            .forEach((c) => c.classList.remove('active'));
+
+                        // 클릭된 탭과 해당 컨텐츠에 active 클래스 추가
+                        tab.classList.add('active');
+                        const tabContent = document.getElementById(
+                            `${tab.dataset.tab}-results`
+                        );
+                        if (tabContent) {
+                            tabContent.classList.add('active');
+                        }
+                    });
+                });
+
+                // 바꾸기 결과 트리의 전체 펼치기/접기 버튼
+                const expandAllReplaceBtn =
+                    document.getElementById('expand-all-replace');
+                const collapseAllReplaceBtn = document.getElementById(
+                    'collapse-all-replace'
+                );
+
+                if (expandAllReplaceBtn) {
+                    expandAllReplaceBtn.addEventListener('click', () => {
+                        const replaceTreeView =
+                            document.getElementById('replace-tree-view');
+                        const folderContents = replaceTreeView.querySelectorAll(
+                            '.tree-folder-content'
+                        );
+                        const toggleIcons =
+                            replaceTreeView.querySelectorAll('.tree-toggle');
+
+                        folderContents.forEach((content) =>
+                            content.classList.add('open')
+                        );
+                        toggleIcons.forEach((icon) => (icon.textContent = '▼'));
+                    });
+                }
+
+                if (collapseAllReplaceBtn) {
+                    collapseAllReplaceBtn.addEventListener('click', () => {
+                        const replaceTreeView =
+                            document.getElementById('replace-tree-view');
+                        const folderContents = replaceTreeView.querySelectorAll(
+                            '.tree-folder-content'
+                        );
+                        const toggleIcons =
+                            replaceTreeView.querySelectorAll('.tree-toggle');
+
+                        folderContents.forEach((content) =>
+                            content.classList.remove('open')
+                        );
+                        toggleIcons.forEach((icon) => (icon.textContent = '►'));
+                    });
+                }
+            });
+        </script>
+    </body>
+</html>
