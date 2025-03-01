@@ -1,3 +1,13 @@
+import { IpcMainEvent } from 'electron';
+
+// 검색 옵션 인터페이스 정의
+interface SearchOptions {
+    folderPath: string;
+    filePattern: string;
+    timeoutSeconds?: number;
+    lastSearchPath?: string;
+}
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -23,129 +33,115 @@ let currentSearchCancel = null;
 const DEFAULT_SEARCH_TIMEOUT = 30000;
 
 // 파일 검색 함수 개선
-async function findFiles(directory, pattern, timeoutSeconds = 30) {
-    // 이전 검색 취소
-    if (currentSearchCancel) {
-        currentSearchCancel();
-    }
-
-    // 새로운 취소 토큰 생성
-    let isCancelled = false;
+async function findFiles(event: IpcMainEvent, options: SearchOptions) {
+    const {
+        folderPath,
+        filePattern,
+        timeoutSeconds = 30,
+        lastSearchPath,
+    } = options;
+    const startTime = Date.now();
+    let files: string[] = [];
     let isTimedOut = false;
-    currentSearchCancel = () => {
-        isCancelled = true;
-    };
+    let continueFromTimeout = false;
+    let newTimeoutStart = 0;
 
-    // 타임아웃 설정
-    const timeoutMs = timeoutSeconds * 1000;
-    const searchStartTime = Date.now();
-
-    // 캐시 키 생성
-    const cacheKey = `${directory}:${pattern}`;
-
-    // 캐시된 결과가 있으면 반환
-    if (searchCache.has(cacheKey)) {
-        const cached = searchCache.get(cacheKey);
-        if (Date.now() - cached.timestamp < 30000) {
-            return cached.files;
-        }
-    }
-
-    const files = [];
-    const skippedDirs = [];
-    const processedPaths = new Set();
-
-    // 패턴을 정규식으로 변환
-    let regexPattern = pattern
-        .replace(/\./g, '\\.')
-        .replace(/\*/g, '.*')
-        .replace(/\?/g, '.');
-    const regex = new RegExp(`^${regexPattern}$`, 'i');
-
-    // 병렬 처리를 위한 작업자 풀 크기
-    const MAX_WORKERS = cpuCount; // 시스템의 CPU 코어 수만큼 작업자 생성
-    const pendingDirectories = [directory];
-    const activeWorkers = new Set();
-
-    // 디렉토리 처리 작업자 함수
-    async function worker() {
-        while (pendingDirectories.length > 0 && !isCancelled && !isTimedOut) {
-            // 시간 초과 체크
-            if (Date.now() - searchStartTime > timeoutMs) {
-                isTimedOut = true;
-                break;
-            }
-
-            const dir = pendingDirectories.shift();
-            if (!dir || processedPaths.has(dir)) continue;
-            processedPaths.add(dir);
-
-            try {
-                // 시스템 폴더 건너뛰기
-                if (
-                    dir.endsWith('System Volume Information') ||
-                    dir.endsWith('$RECYCLE.BIN') ||
-                    dir.endsWith('$Recycle.Bin') ||
-                    dir.includes('WindowsApps') ||
-                    dir.includes('node_modules') ||
-                    dir.includes('.git')
-                ) {
-                    skippedDirs.push(dir);
-                    continue;
-                }
-
-                const entries = await readdirAsync(dir);
-                await Promise.all(
-                    entries.map(async (entry) => {
-                        if (isCancelled) return;
-
-                        const entryPath = path.join(dir, entry);
-                        try {
-                            const stats = await statAsync(entryPath);
-                            if (stats.isDirectory()) {
-                                pendingDirectories.push(entryPath);
-                            } else if (stats.isFile() && regex.test(entry)) {
-                                files.push(entryPath);
-                            }
-                        } catch (err) {
-                            if (err.code === 'EPERM' || err.code === 'EACCES') {
-                                skippedDirs.push(entryPath);
-                            }
-                        }
-                    })
-                );
-            } catch (err) {
-                if (err.code === 'EPERM' || err.code === 'EACCES') {
-                    skippedDirs.push(dir);
-                }
-            }
-        }
-    }
+    // 파일 패턴을 정규식으로 변환
+    const pattern = filePattern.replace(/\./g, '\\.').replace(/\*/g, '.*');
+    const regex = new RegExp(pattern, 'i');
 
     try {
-        // 병렬 작업자 시작
-        const workers = Array(MAX_WORKERS)
-            .fill(null)
-            .map(() => worker());
-        await Promise.all(workers);
+        const processDirectory = async (dirPath: string) => {
+            // 제한시간 체크
+            const currentTime = Date.now();
+            const elapsedTime = continueFromTimeout
+                ? (currentTime - newTimeoutStart) / 1000
+                : (currentTime - startTime) / 1000;
 
-        // 결과 캐시 저장 (시간 초과가 아닌 경우에만)
-        if (!isCancelled && !isTimedOut) {
-            searchCache.set(cacheKey, {
-                files: files,
-                timestamp: Date.now(),
-            });
+            if (elapsedTime >= timeoutSeconds && !continueFromTimeout) {
+                if (!isTimedOut) {
+                    isTimedOut = true;
+                    // 제한시간 초과 이벤트 발생
+                    event.reply('search-timeout', {
+                        files,
+                        elapsedTime: Math.floor(elapsedTime),
+                        lastSearchPath: dirPath,
+                    });
 
-            // 캐시 크기 제한 (최대 100개)
-            if (searchCache.size > 100) {
-                const oldestKey = Array.from(searchCache.keys())[0];
-                searchCache.delete(oldestKey);
+                    // 사용자 응답 대기
+                    const response = await new Promise<{
+                        continueSearch: boolean;
+                    }>((resolve) => {
+                        ipcMain.once(
+                            'search-timeout-response',
+                            (_, response) => {
+                                resolve(response);
+                            }
+                        );
+                    });
+
+                    if (!response.continueSearch) {
+                        event.reply('search-results', files);
+                        return false; // 검색 중단
+                    }
+
+                    // 검색 계속하는 경우 새로운 타임아웃 시작
+                    continueFromTimeout = true;
+                    newTimeoutStart = Date.now();
+                    isTimedOut = false;
+                }
             }
-        }
 
-        return { files, isTimedOut };
-    } finally {
-        currentSearchCancel = null;
+            // 이전 검색 위치부터 시작
+            if (lastSearchPath && dirPath < lastSearchPath) {
+                return true;
+            }
+
+            // 시스템 폴더 건너뛰기
+            if (
+                dirPath.endsWith('System Volume Information') ||
+                dirPath.endsWith('$RECYCLE.BIN') ||
+                dirPath.endsWith('$Recycle.Bin') ||
+                dirPath.includes('WindowsApps') ||
+                dirPath.includes('node_modules') ||
+                dirPath.includes('.git')
+            ) {
+                return true;
+            }
+
+            const entries = await readdirAsync(dirPath);
+            await Promise.all(
+                entries.map(async (entry) => {
+                    if (isTimedOut) return;
+
+                    const entryPath = path.join(dirPath, entry);
+                    try {
+                        const stats = await statAsync(entryPath);
+                        if (stats.isDirectory()) {
+                            await processDirectory(entryPath);
+                        } else if (stats.isFile() && regex.test(entry)) {
+                            files.push(entryPath);
+                        }
+                    } catch (err) {
+                        if (err.code === 'EPERM' || err.code === 'EACCES') {
+                            return true;
+                        }
+                    }
+                })
+            );
+
+            return true;
+        };
+
+        await processDirectory(folderPath);
+
+        // 검색 결과 전송
+        if (!isTimedOut) {
+            event.reply('search-results', files);
+        }
+    } catch (error) {
+        console.error('Error in findFiles:', error);
+        event.reply('search-error', error.message);
     }
 }
 
@@ -329,55 +325,10 @@ ipcMain.on('get-system-folder', (event, folderType) => {
     }
 });
 
-ipcMain.on(
-    'find-files',
-    async (event, { folderPath, filePattern, timeoutSeconds = 30 }) => {
-        const sourceWindow = BrowserWindow.fromWebContents(event.sender);
-        if (!sourceWindow) return;
-
-        try {
-            const { files, isTimedOut } = await findFiles(
-                folderPath,
-                filePattern,
-                timeoutSeconds
-            );
-
-            if (isTimedOut) {
-                const response = await dialog.showMessageBox(sourceWindow, {
-                    type: 'question',
-                    title: '검색 시간 초과',
-                    message: `검색 시간이 ${timeoutSeconds}초를 초과했습니다.`,
-                    detail: `현재까지 ${files.length}개의 파일이 검색되었습니다. 검색된 결과를 표시하시겠습니까?`,
-                    buttons: ['예', '아니오'],
-                    defaultId: 0,
-                    cancelId: 1,
-                });
-
-                if (response.response === 0) {
-                    // 사용자가 '예'를 선택한 경우
-                    sourceWindow.webContents.send('search-results', files);
-                    if (mainWindow && sourceWindow !== mainWindow) {
-                        mainWindow.webContents.send(
-                            'file-search-results',
-                            files
-                        );
-                    }
-                }
-            } else {
-                // 정상적으로 검색이 완료된 경우
-                sourceWindow.webContents.send('search-results', files);
-                if (mainWindow && sourceWindow !== mainWindow) {
-                    mainWindow.webContents.send('file-search-results', files);
-                }
-            }
-        } catch (error) {
-            dialog.showErrorBox(
-                '검색 오류',
-                `파일 검색 중 오류가 발생했습니다: ${error.message}`
-            );
-        }
-    }
-);
+// IPC 이벤트 핸들러 등록
+ipcMain.on('find-files', (event, options) => {
+    findFiles(event, options);
+});
 
 // 파일이 위치한 폴더 열기
 ipcMain.on('open-containing-folder', (event, folderPath) => {
