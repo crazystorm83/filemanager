@@ -57,7 +57,9 @@ export const createMenu = (mainWindow: BrowserWindow): Menu => {
                         browserWindow: BrowserWindow | null
                     ) => {
                         if (browserWindow) {
-                            browserWindow.webContents.send('open-file-replace');
+                            browserWindow.webContents.send(
+                                'open-rename-window'
+                            );
                         }
                     },
                 },

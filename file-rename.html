@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>파일명 변경</title>
+        <link
+            rel="stylesheet"
+            href="styles/file-dialog.css" />
+        <style>
+            .rename-options {
+                margin: 10px 0;
+                padding: 8px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 13px;
+            }
+
+            .input-group {
+                display: flex;
+                gap: 8px;
+                margin: 5px 0;
+                align-items: center;
+            }
+
+            .input-label {
+                min-width: 100px;
+            }
+
+            .input-field {
+                flex: 1;
+                height: 24px;
+                font-size: 12px;
+                padding: 2px 5px;
+            }
+
+            .separator-input {
+                width: 60px;
+            }
+
+            .tree-item-checkbox {
+                margin-right: 5px;
+            }
+
+            .tree-controls {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+
+            .tab-content {
+                display: none;
+                margin-top: 10px;
+            }
+
+            .tab-content.active {
+                display: block;
+            }
+
+            .results-area {
+                max-height: 500px;
+                overflow-y: auto;
+                margin-top: 20px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                padding: 15px;
+                background-color: #f8f9fa;
+            }
+
+            .checkbox-controls {
+                margin-bottom: 15px;
+                padding: 8px;
+                background-color: #fff;
+                border-radius: 4px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .tree-controls {
+                margin-bottom: 15px;
+                padding: 8px;
+                background-color: #fff;
+                border-radius: 4px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .tree-control-btn {
+                padding: 4px 12px;
+                font-size: 12px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                background-color: #fff;
+                cursor: pointer;
+            }
+
+            .tree-control-btn:hover {
+                background-color: #f0f0f0;
+            }
+
+            .tree {
+                padding: 10px;
+                background-color: #fff;
+                border-radius: 4px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .tree-folder {
+                margin: 5px 0;
+            }
+
+            .tree-folder-header {
+                padding: 5px;
+                cursor: pointer;
+                border-radius: 4px;
+                transition: background-color 0.2s;
+            }
+
+            .tree-folder-header:hover {
+                background-color: #f0f0f0;
+            }
+
+            .tree-folder-content {
+                display: none;
+                margin-left: 20px;
+                padding-left: 10px;
+                border-left: 2px solid #ddd;
+            }
+
+            .tree-folder-content.open {
+                display: block;
+            }
+
+            .tree-item {
+                padding: 5px;
+                margin: 2px 0;
+                border-radius: 4px;
+                transition: all 0.2s;
+                cursor: pointer;
+            }
+
+            .tree-item:hover {
+                background-color: #f0f0f0;
+            }
+
+            .tree-item.highlight {
+                background-color: #e3f2fd;
+                border: 1px solid #2196f3;
+            }
+
+            .tree-file-name {
+                font-size: 13px;
+            }
+
+            .tree-file-error {
+                font-size: 12px;
+                color: #dc3545;
+                margin-left: 10px;
+            }
+
+            .result-count {
+                font-size: 14px;
+                color: #666;
+            }
+
+            h3 {
+                margin-top: 0;
+                margin-bottom: 15px;
+                color: #333;
+            }
+
+            .tree-toggle {
+                display: inline-block;
+                width: 20px;
+                text-align: center;
+                color: #666;
+            }
+
+            .tree-folder-icon,
+            .tree-file-icon {
+                margin-right: 5px;
+            }
+
+            /* 성공/실패 그룹 스타일 */
+            .success-group .tree-folder-header {
+                color: #28a745;
+                background-color: #e8f5e9;
+            }
+
+            .failed-group .tree-folder-header {
+                color: #dc3545;
+                background-color: #fff5f5;
+            }
+
+            /* 책갈피 스타일 */
+            .slide-toggle {
+                position: fixed;
+                top: 50%;
+                right: 0;
+                transform: translateY(-50%);
+                width: 30px;
+                height: 80px;
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-right: none;
+                border-radius: 4px 0 0 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+                z-index: 998;
+                transition: right 0.3s ease-in-out;
+            }
+
+            .slide-toggle.search {
+                margin-top: -45px;
+            }
+
+            .slide-toggle.rename {
+                margin-top: 45px;
+            }
+
+            .slide-toggle:hover {
+                background-color: #e9ecef;
+            }
+
+            .slide-toggle .toggle-icon {
+                writing-mode: vertical-rl;
+                text-orientation: mixed;
+                font-size: 12px;
+                color: #666;
+            }
+
+            .slide-menu.open + .slide-toggle {
+                right: 500px;
+            }
+
+            .slide-menu {
+                position: fixed;
+                top: 0;
+                right: -500px;
+                width: 500px;
+                height: 100vh;
+                background-color: #fff;
+                box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+                transition: right 0.3s ease-in-out;
+                z-index: 1000;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .slide-menu.open {
+                right: 0;
+            }
+
+            .slide-menu-header {
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #dee2e6;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .slide-menu-close {
+                background: none;
+                border: none;
+                font-size: 20px;
+                cursor: pointer;
+                padding: 5px;
+            }
+
+            .slide-menu-content {
+                flex: 1;
+                overflow-y: auto;
+                padding: 15px;
+            }
+
+            .slide-menu-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                background-color: rgba(0, 0, 0, 0.5);
+                display: none;
+                z-index: 999;
+            }
+
+            .slide-menu-backdrop.open {
+                display: block;
+            }
+
+            /* 변경 결과 레이아웃 스타일 */
+            .rename-results-header {
+                padding: 15px;
+                background-color: #f8f9fa;
+                border-bottom: 1px solid #dee2e6;
+            }
+
+            .rename-results-summary {
+                display: flex;
+                align-items: center;
+                gap: 15px;
+                margin-bottom: 15px;
+            }
+
+            .result-stat {
+                padding: 8px 15px;
+                border-radius: 20px;
+                font-size: 13px;
+                font-weight: 500;
+            }
+
+            .result-stat.success {
+                background-color: #e8f5e9;
+                color: #28a745;
+            }
+
+            .result-stat.failed {
+                background-color: #fff5f5;
+                color: #dc3545;
+            }
+
+            .result-section {
+                margin-bottom: 20px;
+                background-color: #fff;
+                border-radius: 8px;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
+            .result-section-header {
+                padding: 12px 15px;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                cursor: pointer;
+            }
+
+            .result-section.success .result-section-header {
+                background-color: #e8f5e9;
+                color: #28a745;
+            }
+
+            .result-section.failed .result-section-header {
+                background-color: #fff5f5;
+                color: #dc3545;
+            }
+
+            .result-section-content {
+                padding: 15px;
+            }
+
+            .result-file-item {
+                display: flex;
+                align-items: flex-start;
+                padding: 8px;
+                border-radius: 4px;
+                margin-bottom: 5px;
+            }
+
+            .result-file-item:hover {
+                background-color: #f8f9fa;
+            }
+
+            .result-file-icon {
+                margin-right: 10px;
+                font-size: 16px;
+            }
+
+            .result-file-info {
+                flex: 1;
+            }
+
+            .result-file-path {
+                font-size: 12px;
+                color: #666;
+                margin-top: 2px;
+            }
+
+            .result-file-error {
+                color: #dc3545;
+                font-size: 12px;
+                margin-top: 5px;
+                padding: 5px 10px;
+                background-color: #fff5f5;
+                border-radius: 4px;
+            }
+
+            .progress-bar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 3px;
+                background: linear-gradient(to right, #4caf50, #2196f3);
+                z-index: 1000;
+                display: none;
+            }
+
+            .progress-bar.active {
+                display: block;
+                animation: progress 2s infinite linear;
+            }
+
+            @keyframes progress {
+                0% {
+                    transform: translateX(-100%);
+                }
+                100% {
+                    transform: translateX(100%);
+                }
+            }
+
+            .input-description {
+                margin: 10px 0;
+                padding: 8px 12px;
+                background-color: #f8f9fa;
+                border-radius: 4px;
+                font-size: 12px;
+                color: #666;
+            }
+
+            .description-label {
+                font-weight: bold;
+                margin-right: 8px;
+            }
+
+            .description-format {
+                font-family: monospace;
+                background-color: #fff;
+                padding: 2px 6px;
+                border-radius: 3px;
+                border: 1px solid #ddd;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h2>파일명 변경</h2>
+
+            <!-- 폴더 경로 입력 영역 -->
+            <div class="form-group">
+                <label for="folder-path">폴더 경로:</label>
+                <div class="input-group">
+                    <input
+                        type="text"
+                        id="folder-path"
+                        placeholder="검색할 폴더 경로를 입력하세요" />
+                    <button
+                        class="browse-btn"
+                        id="btn-browse">
+                        찾아보기...
+                    </button>
+                </div>
+            </div>
+
+            <!-- 파일명 변경 입력 영역 -->
+            <div class="rename-options">
+                <div class="input-method">
+                    <div class="input-group">
+                        <label class="input-label">입력 방식:</label>
+                        <select
+                            id="input-type"
+                            class="input-field">
+                            <option value="direct">직접 입력</option>
+                            <option value="file">텍스트 파일</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 직접 입력 영역 -->
+                <div
+                    id="direct-input"
+                    class="input-content">
+                    <div class="input-group">
+                        <label class="input-label">변경할 파일명:</label>
+                        <input
+                            type="text"
+                            id="old-name"
+                            class="input-field"
+                            placeholder="변경할 파일명 입력" />
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">변경될 파일명:</label>
+                        <input
+                            type="text"
+                            id="new-name"
+                            class="input-field"
+                            placeholder="변경될 파일명 입력" />
+                    </div>
+                </div>
+
+                <!-- 텍스트 파일 입력 영역 -->
+                <div
+                    id="file-input"
+                    class="input-content"
+                    style="display: none">
+                    <div class="input-group">
+                        <label class="input-label">구분자:</label>
+                        <input
+                            type="text"
+                            id="separator"
+                            class="input-field separator-input"
+                            value="|" />
+                    </div>
+                    <div class="input-description">
+                        <div class="description-text">
+                            <span class="description-label">형식:</span>
+                            <span class="description-format"
+                                >변경할 파일명 | 변경될 파일명</span
+                            >
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label">텍스트 파일:</label>
+                        <input
+                            type="text"
+                            id="text-file-path"
+                            class="input-field"
+                            readonly
+                            placeholder="텍스트 파일 선택" />
+                        <button
+                            id="btn-browse-text"
+                            class="browse-btn">
+                            찾아보기...
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 검색 결과 슬라이드 메뉴 -->
+            <div
+                class="slide-menu-backdrop"
+                id="search-backdrop"></div>
+            <div
+                class="slide-menu"
+                id="search-results">
+                <div class="slide-menu-header">
+                    <h3>검색 결과</h3>
+                    <button
+                        class="slide-menu-close"
+                        id="close-search-results">
+                        &times;
+                    </button>
+                </div>
+                <div class="slide-menu-content">
+                    <div class="checkbox-controls">
+                        <button
+                            id="check-all"
+                            class="tree-control-btn">
+                            전체 선택
+                        </button>
+                        <button
+                            id="uncheck-all"
+                            class="tree-control-btn">
+                            전체 해제
+                        </button>
+                    </div>
+                    <div class="tree-controls">
+                        <button
+                            id="expand-all"
+                            class="tree-control-btn">
+                            전체 펼치기
+                        </button>
+                        <button
+                            id="collapse-all"
+                            class="tree-control-btn">
+                            전체 접기
+                        </button>
+                    </div>
+                    <div
+                        id="tree-view"
+                        class="tree"></div>
+                </div>
+            </div>
+            <button
+                class="slide-toggle search"
+                id="search-toggle">
+                <span class="toggle-icon">검색 결과</span>
+            </button>
+
+            <!-- 변경 결과 슬라이드 메뉴 -->
+            <div
+                class="slide-menu-backdrop"
+                id="rename-backdrop"></div>
+            <div
+                class="slide-menu"
+                id="rename-results">
+                <div class="slide-menu-header">
+                    <h3>변경 결과</h3>
+                    <button
+                        class="slide-menu-close"
+                        id="close-rename-results">
+                        &times;
+                    </button>
+                </div>
+                <div class="slide-menu-content">
+                    <div class="rename-results-header">
+                        <div class="rename-results-summary">
+                            <div class="result-stat success">
+                                성공: <span id="success-count">0</span>개
+                            </div>
+                            <div class="result-stat failed">
+                                실패: <span id="failed-count">0</span>개
+                            </div>
+                        </div>
+                        <div class="tree-controls">
+                            <button
+                                id="result-expand-all"
+                                class="tree-control-btn">
+                                전체 펼치기
+                            </button>
+                            <button
+                                id="result-collapse-all"
+                                class="tree-control-btn">
+                                전체 접기
+                            </button>
+                        </div>
+                    </div>
+                    <div
+                        id="result-tree-view"
+                        class="tree"></div>
+                </div>
+            </div>
+            <button
+                class="slide-toggle rename"
+                id="rename-toggle">
+                <span class="toggle-icon">변경 결과</span>
+            </button>
+
+            <!-- 버튼 그룹 -->
+            <div class="button-group">
+                <button
+                    class="secondary"
+                    id="btn-close">
+                    닫기
+                </button>
+                <button
+                    class="primary"
+                    id="btn-search">
+                    검색
+                </button>
+                <button
+                    class="primary"
+                    id="btn-rename">
+                    변경
+                </button>
+            </div>
+        </div>
+
+        <script>
+            const { ipcRenderer } = require('electron');
+            const path = require('path');
+
+            // 입력 방식 변경 이벤트
+            document
+                .getElementById('input-type')
+                .addEventListener('change', (e) => {
+                    const directInput = document.getElementById('direct-input');
+                    const fileInput = document.getElementById('file-input');
+
+                    if (e.target.value === 'direct') {
+                        directInput.style.display = 'block';
+                        fileInput.style.display = 'none';
+                    } else {
+                        directInput.style.display = 'none';
+                        fileInput.style.display = 'block';
+                    }
+                });
+
+            // 폴더 찾아보기 버튼
+            document
+                .getElementById('btn-browse')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('open-folder-dialog');
+                });
+
+            // 텍스트 파일 찾아보기 버튼
+            document
+                .getElementById('btn-browse-text')
+                .addEventListener('click', () => {
+                    ipcRenderer.send('open-text-file-dialog');
+                });
+
+            // 검색 버튼 클릭 이벤트
+            document
+                .getElementById('btn-search')
+                .addEventListener('click', () => {
+                    const folderPath =
+                        document.getElementById('folder-path').value;
+                    const inputType =
+                        document.getElementById('input-type').value;
+                    let searchData = {};
+
+                    if (!folderPath) {
+                        alert('폴더 경로를 입력해주세요.');
+                        return;
+                    }
+
+                    if (inputType === 'direct') {
+                        const oldName =
+                            document.getElementById('old-name').value;
+                        const newName =
+                            document.getElementById('new-name').value;
+
+                        if (!oldName || !newName) {
+                            alert(
+                                '변경할 파일명과 변경될 파일명을 모두 입력해주세요.'
+                            );
+                            return;
+                        }
+
+                        searchData = { oldName, newName };
+                    } else {
+                        const filePath =
+                            document.getElementById('text-file-path').value;
+                        const separator =
+                            document.getElementById('separator').value;
+
+                        if (!filePath) {
+                            alert('텍스트 파일을 선택해주세요.');
+                            return;
+                        }
+
+                        searchData = { filePath, separator };
+                    }
+
+                    // 검색 시작 시 결과 영역 초기화 및 표시
+                    const searchResults =
+                        document.getElementById('search-results');
+                    searchResults.classList.add('open');
+                    const searchBackdrop =
+                        document.getElementById('search-backdrop');
+                    searchBackdrop.classList.add('open');
+                    const treeView = document.getElementById('tree-view');
+                    treeView.innerHTML =
+                        '<div class="tree-item">검색 중...</div>';
+
+                    // 검색 요청 전송
+                    ipcRenderer.send('search-rename-files', {
+                        folderPath,
+                        inputType,
+                        searchData,
+                    });
+                });
+
+            // 변경 버튼 클릭 이벤트
+            document
+                .getElementById('btn-rename')
+                .addEventListener('click', async () => {
+                    const checkedFiles = getCheckedFiles();
+                    if (checkedFiles.length === 0) {
+                        alert('변경할 파일을 선택해주세요.');
+                        return;
+                    }
+
+                    const confirmMessage = `선택한 ${checkedFiles.length}개의 파일명을 변경하시겠습니까?`;
+                    if (!confirm(confirmMessage)) return;
+
+                    try {
+                        const results = await processBatch(checkedFiles);
+
+                        if (results && results.length > 0) {
+                            const renameResults =
+                                document.getElementById('rename-results');
+                            const renameBackdrop =
+                                document.getElementById('rename-backdrop');
+
+                            renderRenameResults(results);
+
+                            renameResults.classList.add('open');
+                            renameBackdrop.classList.add('open');
+                        } else {
+                            throw new Error('파일명 변경 결과가 없습니다.');
+                        }
+                    } catch (error) {
+                        console.error('파일명 변경 오류:', error);
+                        alert(
+                            `파일명 변경 중 오류가 발생했습니다: ${
+                                error.message || '알 수 없는 오류'
+                            }`
+                        );
+                    }
+                });
+
+            // 닫기 버튼 클릭 이벤트
+            document
+                .getElementById('btn-close')
+                .addEventListener('click', () => {
+                    if (confirm('창을 닫으시겠습니까?')) {
+                        ipcRenderer.send('close-rename-window');
+                    }
+                });
+
+            // ESC 키 이벤트
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const searchResults =
+                        document.getElementById('search-results');
+                    const searchBackdrop =
+                        document.getElementById('search-backdrop');
+                    const renameResults =
+                        document.getElementById('rename-results');
+                    const renameBackdrop =
+                        document.getElementById('rename-backdrop');
+
+                    searchResults.classList.remove('open');
+                    searchBackdrop.classList.remove('open');
+                    renameResults.classList.remove('open');
+                    renameBackdrop.classList.remove('open');
+                }
+            });
+
+            // 전체 선택/해제 버튼 이벤트
+            document
+                .getElementById('check-all')
+                .addEventListener('click', () => {
+                    const checkboxes = document.querySelectorAll(
+                        '.tree-item-checkbox'
+                    );
+                    checkboxes.forEach((checkbox) => (checkbox.checked = true));
+                });
+
+            document
+                .getElementById('uncheck-all')
+                .addEventListener('click', () => {
+                    const checkboxes = document.querySelectorAll(
+                        '.tree-item-checkbox'
+                    );
+                    checkboxes.forEach(
+                        (checkbox) => (checkbox.checked = false)
+                    );
+                });
+
+            // 폴더 전체 펼치기/접기 버튼 이벤트
+            document
+                .getElementById('expand-all')
+                .addEventListener('click', () => {
+                    const folders = document.querySelectorAll(
+                        '.tree-folder-content'
+                    );
+                    folders.forEach((folder) => folder.classList.add('open'));
+                });
+
+            document
+                .getElementById('collapse-all')
+                .addEventListener('click', () => {
+                    const folders = document.querySelectorAll(
+                        '.tree-folder-content'
+                    );
+                    folders.forEach((folder) =>
+                        folder.classList.remove('open')
+                    );
+                });
+
+            // 변경 결과 영역 전체 펼치기/접기 버튼 이벤트
+            document
+                .getElementById('result-expand-all')
+                .addEventListener('click', () => {
+                    const folders = document.querySelectorAll(
+                        '#rename-results .tree-folder-content'
+                    );
+                    folders.forEach((folder) => {
+                        folder.classList.add('open');
+                        const toggleIcon =
+                            folder.previousElementSibling.querySelector(
+                                '.tree-toggle'
+                            );
+                        if (toggleIcon) {
+                            toggleIcon.textContent = '▼';
+                        }
+                    });
+                });
+
+            document
+                .getElementById('result-collapse-all')
+                .addEventListener('click', () => {
+                    const folders = document.querySelectorAll(
+                        '#rename-results .tree-folder-content'
+                    );
+                    folders.forEach((folder) => {
+                        folder.classList.remove('open');
+                        const toggleIcon =
+                            folder.previousElementSibling.querySelector(
+                                '.tree-toggle'
+                            );
+                        if (toggleIcon) {
+                            toggleIcon.textContent = '►';
+                        }
+                    });
+                });
+
+            // 선택된 파일 목록 가져오기
+            function getCheckedFiles() {
+                const checkedItems = document.querySelectorAll(
+                    '.tree-item-checkbox:checked'
+                );
+                const files = [];
+
+                checkedItems.forEach((checkbox) => {
+                    if (checkbox.dataset.path && checkbox.dataset.newPath) {
+                        files.push({
+                            oldPath: checkbox.dataset.path,
+                            newPath: checkbox.dataset.newPath,
+                        });
+                    }
+                });
+
+                return files;
+            }
+
+            // 배치 처리를 위한 함수
+            function processBatch(files) {
+                return new Promise((resolve, reject) => {
+                    let processedCount = 0;
+                    const results = [];
+
+                    // 이전 리스너 제거
+                    ipcRenderer.removeAllListeners('rename-batch-complete');
+                    ipcRenderer.removeAllListeners('rename-batch-error');
+
+                    // 결과 수신 리스너
+                    ipcRenderer.once(
+                        'rename-batch-complete',
+                        (event, batchResults) => {
+                            try {
+                                if (Array.isArray(batchResults)) {
+                                    results.push(...batchResults);
+                                    processedCount += batchResults.length;
+
+                                    // 모든 파일 처리 완료 시
+                                    if (processedCount >= files.length) {
+                                        removeProgressBar();
+                                        resolve(results);
+                                    }
+                                }
+                            } catch (error) {
+                                removeProgressBar();
+                                reject(error);
+                            }
+                        }
+                    );
+
+                    // 오류 수신 리스너
+                    ipcRenderer.once('rename-batch-error', (event, error) => {
+                        removeProgressBar();
+                        reject(
+                            new Error(
+                                error.message ||
+                                    '파일명 변경 중 오류가 발생했습니다.'
+                            )
+                        );
+                    });
+
+                    // 파일명 변경 요청 전송
+                    ipcRenderer.send('execute-rename', files);
+                });
+            }
+
+            // IPC 이벤트 수신 처리
+            ipcRenderer.on('selected-folder', (event, path) => {
+                document.getElementById('folder-path').value = path;
+            });
+
+            ipcRenderer.on('selected-text-file', (event, path) => {
+                document.getElementById('text-file-path').value = path;
+            });
+
+            // 검색 결과 수신 처리
+            ipcRenderer.on('rename-search-results', (event, results) => {
+                const searchResults = document.getElementById('search-results');
+                const searchBackdrop =
+                    document.getElementById('search-backdrop');
+                const treeView = document.getElementById('tree-view');
+
+                searchResults.classList.add('open');
+                searchBackdrop.classList.add('open');
+
+                if (results.length === 0) {
+                    treeView.innerHTML =
+                        '<div class="tree-item">변경할 파일이 없습니다.</div>';
+                    return;
+                }
+
+                const tree = groupFilesByFolder(results);
+                renderTree(tree, treeView);
+            });
+
+            // 변경 결과 수신 처리
+            ipcRenderer.on('rename-results', (event, results) => {
+                renderRenameResults(results);
+            });
+
+            // 변경 결과 렌더링
+            function renderRenameResults(results) {
+                const renameResults = document.getElementById('rename-results');
+                const renameBackdrop =
+                    document.getElementById('rename-backdrop');
+                const resultTreeView =
+                    document.getElementById('result-tree-view');
+
+                // 메모리 효율을 위해 기존 결과 초기화
+                resultTreeView.innerHTML = '';
+
+                // 결과 분류 최적화
+                const successResults = [];
+                const failedResults = [];
+
+                for (let i = 0; i < results.length; i++) {
+                    if (results[i].success) {
+                        successResults.push(results[i]);
+                    } else {
+                        failedResults.push(results[i]);
+                    }
+                }
+
+                // DOM 업데이트 최소화를 위해 DocumentFragment 사용
+                const fragment = document.createDocumentFragment();
+
+                // 통계 업데이트
+                document.getElementById('success-count').textContent =
+                    successResults.length;
+                document.getElementById('failed-count').textContent =
+                    failedResults.length;
+
+                // 성공 결과 섹션 생성
+                if (successResults.length > 0) {
+                    const successSection = createResultSection(
+                        'success',
+                        successResults
+                    );
+                    fragment.appendChild(successSection);
+                }
+
+                // 실패 결과 섹션 생성
+                if (failedResults.length > 0) {
+                    const failedSection = createResultSection(
+                        'failed',
+                        failedResults
+                    );
+                    fragment.appendChild(failedSection);
+                }
+
+                // 한 번의 DOM 업데이트로 처리
+                resultTreeView.appendChild(fragment);
+
+                // 슬라이드 메뉴 표시
+                renameResults.classList.add('open');
+                renameBackdrop.classList.add('open');
+            }
+
+            // 결과 섹션 생성 함수
+            function createResultSection(type, items) {
+                const section = document.createElement('div');
+                section.className = `result-section ${type}`;
+
+                const header = document.createElement('div');
+                header.className = 'result-section-header';
+                header.innerHTML = `
+                    <span class="tree-toggle">▼</span>
+                    <span class="tree-folder-icon">${
+                        type === 'success' ? '✅' : '❌'
+                    }</span>
+                    <span class="tree-folder-name">${
+                        type === 'success' ? '성공' : '실패'
+                    } (${items.length}개)</span>
+                `;
+
+                const content = document.createElement('div');
+                content.className = 'result-section-content';
+
+                // 결과 트리 생성
+                const tree = groupFilesByFolder(
+                    items.map((item) => ({
+                        oldPath: item.oldPath,
+                        newPath:
+                            type === 'success' ? item.newPath : item.oldPath,
+                        error: item.error,
+                    }))
+                );
+
+                if (type === 'success') {
+                    renderSuccessTree(tree, content);
+                } else {
+                    renderFailedTree(tree, content);
+                }
+
+                // 이벤트 리스너 최적화
+                header.addEventListener(
+                    'click',
+                    () => {
+                        content.classList.toggle('hidden');
+                        const toggleIcon = header.querySelector('.tree-toggle');
+                        toggleIcon.textContent = content.classList.contains(
+                            'hidden'
+                        )
+                            ? '►'
+                            : '▼';
+                    },
+                    { passive: true }
+                );
+
+                section.appendChild(header);
+                section.appendChild(content);
+                return section;
+            }
+
+            // 파일을 폴더별로 그룹화
+            function groupFilesByFolder(files) {
+                const tree = {};
+
+                files.forEach(({ oldPath, newPath }) => {
+                    const dir = path.dirname(oldPath);
+                    const parts = dir.split(path.sep);
+                    let current = tree;
+
+                    parts.forEach((part) => {
+                        if (!current[part]) {
+                            current[part] = {
+                                _files: [],
+                                _path: dir,
+                            };
+                        }
+                        current = current[part];
+                    });
+
+                    current._files.push({
+                        oldPath,
+                        newPath,
+                        oldName: path.basename(oldPath),
+                        newName: path.basename(newPath),
+                    });
+                });
+
+                return tree;
+            }
+
+            // 트리 구조 렌더링 최적화
+            function renderTree(tree, parentElement) {
+                const fragment = document.createDocumentFragment();
+
+                for (const folderName in tree) {
+                    if (folderName === '_files' || folderName === '_path')
+                        continue;
+
+                    const folderElement = document.createElement('div');
+                    folderElement.className = 'tree-folder';
+
+                    // Template literal 대신 문자열 연결 사용
+                    const folderHeader = document.createElement('div');
+                    folderHeader.className = 'tree-folder-header';
+                    folderHeader.innerHTML =
+                        '<span class="tree-toggle">►</span>' +
+                        '<span class="tree-folder-icon">📁</span>' +
+                        '<span class="tree-folder-name">' +
+                        folderName +
+                        '</span>';
+
+                    const folderContent = document.createElement('div');
+                    folderContent.className = 'tree-folder-content';
+
+                    // 하위 폴더 및 파일 렌더링
+                    renderTree(tree[folderName], folderContent);
+
+                    // 현재 폴더의 파일들 일괄 처리
+                    if (tree[folderName]._files) {
+                        const filesFragment = document.createDocumentFragment();
+                        tree[folderName]._files.forEach((file) => {
+                            const fileElement = document.createElement('div');
+                            fileElement.className = 'tree-item';
+                            fileElement.innerHTML =
+                                '<input type="checkbox" class="tree-item-checkbox" data-path="' +
+                                file.oldPath +
+                                '" data-new-path="' +
+                                file.newPath +
+                                '">' +
+                                '<span class="tree-file-icon">📄</span>' +
+                                '<span class="tree-file-name">' +
+                                file.oldName +
+                                ' → ' +
+                                file.newName +
+                                '</span>';
+
+                            // 이벤트 위임을 위한 데이터 속성 추가
+                            fileElement.dataset.path = file.oldPath;
+                            fileElement.dataset.newPath = file.newPath;
+
+                            filesFragment.appendChild(fileElement);
+                        });
+                        folderContent.appendChild(filesFragment);
+                    }
+
+                    folderElement.appendChild(folderHeader);
+                    folderElement.appendChild(folderContent);
+                    fragment.appendChild(folderElement);
+                }
+
+                parentElement.appendChild(fragment);
+            }
+
+            // 성공한 파일 렌더링 함수 수정
+            function renderSuccessTree(tree, parentElement) {
+                for (const folderName in tree) {
+                    if (folderName === '_files') continue;
+                    if (folderName === '_path') continue;
+
+                    const folderElement = document.createElement('div');
+                    folderElement.className = 'tree-folder';
+
+                    const folderHeader = document.createElement('div');
+                    folderHeader.className = 'tree-folder-header';
+                    folderHeader.innerHTML = `
+                        <span class="tree-toggle">►</span>
+                        <span class="tree-folder-icon">📁</span>
+                        <span class="tree-folder-name">${folderName}</span>
+                    `;
+
+                    const folderContent = document.createElement('div');
+                    folderContent.className = 'tree-folder-content';
+
+                    renderSuccessTree(tree[folderName], folderContent);
+
+                    if (tree[folderName]._files) {
+                        tree[folderName]._files.forEach((file) => {
+                            const fileElement = document.createElement('div');
+                            fileElement.className = 'result-file-item';
+                            fileElement.innerHTML = `
+                                <span class="result-file-icon">📄</span>
+                                <div class="result-file-info">
+                                    <div class="result-file-name">${file.oldName} → ${file.newName}</div>
+                                    <div class="result-file-path">${file.oldPath}</div>
+                                </div>
+                            `;
+                            addFileClickHandler(fileElement, file, false);
+                            folderContent.appendChild(fileElement);
+                        });
+                    }
+
+                    folderHeader.addEventListener('click', (e) => {
+                        const content = folderHeader.nextElementSibling;
+                        content.classList.toggle('open');
+                        const toggleIcon =
+                            folderHeader.querySelector('.tree-toggle');
+                        toggleIcon.textContent = content.classList.contains(
+                            'open'
+                        )
+                            ? '▼'
+                            : '►';
+                    });
+
+                    folderElement.appendChild(folderHeader);
+                    folderElement.appendChild(folderContent);
+                    parentElement.appendChild(folderElement);
+                }
+            }
+
+            // 실패한 파일 렌더링 함수 수정
+            function renderFailedTree(tree, parentElement) {
+                for (const folderName in tree) {
+                    if (folderName === '_files') continue;
+                    if (folderName === '_path') continue;
+
+                    const folderElement = document.createElement('div');
+                    folderElement.className = 'tree-folder';
+
+                    const folderHeader = document.createElement('div');
+                    folderHeader.className = 'tree-folder-header';
+                    folderHeader.innerHTML = `
+                        <span class="tree-toggle">►</span>
+                        <span class="tree-folder-icon">📁</span>
+                        <span class="tree-folder-name">${folderName}</span>
+                    `;
+
+                    const folderContent = document.createElement('div');
+                    folderContent.className = 'tree-folder-content';
+
+                    renderFailedTree(tree[folderName], folderContent);
+
+                    if (tree[folderName]._files) {
+                        tree[folderName]._files.forEach((file) => {
+                            const fileElement = document.createElement('div');
+                            fileElement.className = 'result-file-item';
+                            fileElement.innerHTML = `
+                                <span class="result-file-icon">📄</span>
+                                <div class="result-file-info">
+                                    <div class="result-file-name">${file.oldName}</div>
+                                    <div class="result-file-path">${file.oldPath}</div>
+                                    <div class="result-file-error">${file.error}</div>
+                                </div>
+                            `;
+                            addFileClickHandler(fileElement, file, false);
+                            folderContent.appendChild(fileElement);
+                        });
+                    }
+
+                    folderHeader.addEventListener('click', (e) => {
+                        const content = folderHeader.nextElementSibling;
+                        content.classList.toggle('open');
+                        const toggleIcon =
+                            folderHeader.querySelector('.tree-toggle');
+                        toggleIcon.textContent = content.classList.contains(
+                            'open'
+                        )
+                            ? '▼'
+                            : '►';
+                    });
+
+                    folderElement.appendChild(folderHeader);
+                    folderElement.appendChild(folderContent);
+                    parentElement.appendChild(folderElement);
+                }
+            }
+
+            // 검색 결과에서 항목 하이라이트
+            function highlightSearchItem(path) {
+                // 이전 하이라이트 제거
+                document
+                    .querySelectorAll('.tree-item.highlight')
+                    .forEach((item) => {
+                        item.classList.remove('highlight');
+                    });
+
+                // 검색 결과에서 해당 항목 찾기
+                const searchItem = document.querySelector(
+                    `#tree-view .tree-item[data-path="${path}"]`
+                );
+                if (searchItem) {
+                    searchItem.classList.add('highlight');
+
+                    // 부모 폴더들을 펼치기
+                    let parent = searchItem.parentElement;
+                    while (parent) {
+                        if (parent.classList.contains('tree-folder-content')) {
+                            parent.classList.add('open');
+                            const toggleIcon =
+                                parent.previousElementSibling.querySelector(
+                                    '.tree-toggle'
+                                );
+                            if (toggleIcon) {
+                                toggleIcon.textContent = '▼';
+                            }
+                        }
+                        parent = parent.parentElement;
+                    }
+
+                    // 항목이 보이도록 스크롤
+                    searchItem.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                    });
+                }
+            }
+
+            // 변경 결과에서 항목 하이라이트
+            function highlightResultItem(path) {
+                // 이전 하이라이트 제거
+                document
+                    .querySelectorAll('.tree-item.highlight')
+                    .forEach((item) => {
+                        item.classList.remove('highlight');
+                    });
+
+                // 변경 결과에서 해당 항목 찾기
+                const resultItem = document.querySelector(
+                    `#result-tree-view .tree-item[data-path="${path}"]`
+                );
+                if (resultItem) {
+                    resultItem.classList.add('highlight');
+
+                    // 부모 폴더들을 펼치기
+                    let parent = resultItem.parentElement;
+                    while (parent) {
+                        if (parent.classList.contains('tree-folder-content')) {
+                            parent.classList.add('open');
+                            const toggleIcon =
+                                parent.previousElementSibling.querySelector(
+                                    '.tree-toggle'
+                                );
+                            if (toggleIcon) {
+                                toggleIcon.textContent = '▼';
+                            }
+                        }
+                        parent = parent.parentElement;
+                    }
+
+                    // 항목이 보이도록 스크롤
+                    resultItem.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'center',
+                    });
+                }
+            }
+
+            // 파일 항목 클릭 이벤트 핸들러 추가
+            function addFileClickHandler(
+                fileElement,
+                file,
+                isSearchResult = true
+            ) {
+                fileElement.dataset.path = file.oldPath;
+
+                fileElement.addEventListener('click', (e) => {
+                    if (e.target.closest('.tree-item-checkbox')) return;
+
+                    // 변경 결과가 있는 경우에만 처리
+                    const renameResults =
+                        document.getElementById('rename-results');
+                    if (renameResults.classList.contains('open')) {
+                        if (isSearchResult) {
+                            highlightResultItem(file.oldPath);
+                        } else {
+                            highlightSearchItem(file.oldPath);
+                        }
+                    }
+                });
+            }
+
+            // 슬라이드 메뉴 닫기 이벤트
+            document
+                .getElementById('close-search-results')
+                .addEventListener('click', () => {
+                    const searchResults =
+                        document.getElementById('search-results');
+                    const searchBackdrop =
+                        document.getElementById('search-backdrop');
+                    searchResults.classList.remove('open');
+                    searchBackdrop.classList.remove('open');
+                });
+
+            document
+                .getElementById('close-rename-results')
+                .addEventListener('click', () => {
+                    const renameResults =
+                        document.getElementById('rename-results');
+                    const renameBackdrop =
+                        document.getElementById('rename-backdrop');
+                    renameResults.classList.remove('open');
+                    renameBackdrop.classList.remove('open');
+                });
+
+            // 백드롭 클릭 시 메뉴 닫기
+            document
+                .getElementById('search-backdrop')
+                .addEventListener('click', () => {
+                    const searchResults =
+                        document.getElementById('search-results');
+                    const searchBackdrop =
+                        document.getElementById('search-backdrop');
+                    searchResults.classList.remove('open');
+                    searchBackdrop.classList.remove('open');
+                });
+
+            document
+                .getElementById('rename-backdrop')
+                .addEventListener('click', () => {
+                    const renameResults =
+                        document.getElementById('rename-results');
+                    const renameBackdrop =
+                        document.getElementById('rename-backdrop');
+                    renameResults.classList.remove('open');
+                    renameBackdrop.classList.remove('open');
+                });
+
+            // 책갈피 토글 버튼 이벤트
+            document
+                .getElementById('search-toggle')
+                .addEventListener('click', () => {
+                    const searchResults =
+                        document.getElementById('search-results');
+                    const searchBackdrop =
+                        document.getElementById('search-backdrop');
+                    const renameResults =
+                        document.getElementById('rename-results');
+                    const renameBackdrop =
+                        document.getElementById('rename-backdrop');
+
+                    if (searchResults.classList.contains('open')) {
+                        searchResults.classList.remove('open');
+                        searchBackdrop.classList.remove('open');
+                    } else {
+                        searchResults.classList.add('open');
+                        searchBackdrop.classList.add('open');
+                        renameResults.classList.remove('open');
+                        renameBackdrop.classList.remove('open');
+                    }
+                });
+
+            document
+                .getElementById('rename-toggle')
+                .addEventListener('click', () => {
+                    const searchResults =
+                        document.getElementById('search-results');
+                    const searchBackdrop =
+                        document.getElementById('search-backdrop');
+                    const renameResults =
+                        document.getElementById('rename-results');
+                    const renameBackdrop =
+                        document.getElementById('rename-backdrop');
+
+                    if (renameResults.classList.contains('open')) {
+                        renameResults.classList.remove('open');
+                        renameBackdrop.classList.remove('open');
+                    } else {
+                        renameResults.classList.add('open');
+                        renameBackdrop.classList.add('open');
+                        searchResults.classList.remove('open');
+                        searchBackdrop.classList.remove('open');
+                    }
+                });
+
+            // 이벤트 위임을 통한 클릭 핸들러 최적화
+            document.addEventListener('click', (e) => {
+                // 폴더 토글 처리
+                const folderHeader = e.target.closest('.tree-folder-header');
+                if (folderHeader && !e.target.closest('.tree-item-checkbox')) {
+                    const content = folderHeader.nextElementSibling;
+                    const isOpen = content.classList.toggle('open');
+                    const toggleIcon =
+                        folderHeader.querySelector('.tree-toggle');
+                    toggleIcon.textContent = isOpen ? '▼' : '►';
+                    return;
+                }
+
+                // 파일 항목 클릭 처리
+                const fileItem = e.target.closest('.tree-item');
+                if (fileItem && !e.target.closest('.tree-item-checkbox')) {
+                    const path = fileItem.dataset.path;
+                    const renameResults =
+                        document.getElementById('rename-results');
+
+                    if (renameResults.classList.contains('open')) {
+                        if (fileItem.closest('#tree-view')) {
+                            highlightResultItem(path);
+                        } else {
+                            highlightSearchItem(path);
+                        }
+                    }
+                }
+            });
+
+            // 구분자 변경 시 설명 업데이트
+            document
+                .getElementById('separator')
+                .addEventListener('input', (e) => {
+                    const descriptionFormat = document.querySelector(
+                        '.description-format'
+                    );
+                    if (descriptionFormat) {
+                        descriptionFormat.textContent = `변경할 파일명 ${e.target.value} 변경될 파일명`;
+                    }
+                });
+
+            // IPC 이벤트 핸들러 수정
+            ipcRenderer.on('rename-error', (event, error) => {
+                console.error('파일명 변경 오류:', error);
+                alert(
+                    `파일명 변경 중 오류가 발생했습니다: ${
+                        error.message || '알 수 없는 오류'
+                    }`
+                );
+                removeProgressBar();
+            });
+
+            // 페이지 로드 시 남아있는 프로그레스바 제거
+            window.addEventListener('load', () => {
+                removeProgressBar();
+            });
+
+            // 페이지 언로드 시에도 프로그레스바 제거
+            window.addEventListener('unload', () => {
+                removeProgressBar();
+            });
+        </script>
+    </body>
+</html>

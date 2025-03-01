@@ -8,13 +8,24 @@ interface SearchOptions {
     lastSearchPath?: string;
 }
 
+// 파일명 변경 옵션 인터페이스 정의
+interface RenameOptions {
+    folderPath: string;
+    inputType: 'direct' | 'file';
+    searchData: {
+        oldName?: string;
+        newName?: string;
+        filePath?: string;
+        separator?: string;
+    };
+}
+
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { promisify } = require('util');
 const { createMenu } = require('./menu');
-const xlsx = require('xlsx');
 
 // CPU 코어 수 가져오기
 const cpuCount = os.cpus().length;
@@ -22,8 +33,8 @@ const cpuCount = os.cpus().length;
 // fs 함수의 프로미스 버전 생성
 const readdirAsync = promisify(fs.readdir);
 const statAsync = promisify(fs.stat);
-const readFileAsync = promisify(fs.readFile);
 const renameAsync = promisify(fs.rename);
+const readFileAsync = promisify(fs.readFile);
 
 // 검색 캐시 및 작업 취소를 위한 변수들
 const searchCache = new Map();
@@ -147,7 +158,7 @@ async function findFiles(event: IpcMainEvent, options: SearchOptions) {
 
 let mainWindow = null;
 let fileFinderWindow = null;
-let fileReplaceWindow = null;
+let renameWindow = null;
 
 // 시스템 폴더 경로 가져오기
 function getSystemFolderPath(folderType) {
@@ -234,14 +245,14 @@ function openFileFinderWindow() {
     });
 }
 
-// 파일명 찾기 & 바꾸기 창 열기
-function openFileReplaceWindow() {
-    if (fileReplaceWindow) {
-        fileReplaceWindow.focus();
+// 파일명 변경 창 열기
+function openRenameWindow() {
+    if (renameWindow) {
+        renameWindow.focus();
         return;
     }
 
-    fileReplaceWindow = new BrowserWindow({
+    renameWindow = new BrowserWindow({
         width: 900,
         height: 800,
         parent: mainWindow,
@@ -257,18 +268,15 @@ function openFileReplaceWindow() {
         },
     });
 
-    // 메뉴바 제거
-    fileReplaceWindow.setMenu(null);
+    renameWindow.setMenu(null);
+    renameWindow.loadFile(path.join(__dirname, '../file-rename.html'));
 
-    fileReplaceWindow.loadFile(path.join(__dirname, '../file-replace.html'));
-
-    // 현재 작업 디렉토리 전달
-    fileReplaceWindow.webContents.on('did-finish-load', () => {
-        fileReplaceWindow.webContents.send('init-folder-path', process.cwd());
+    renameWindow.webContents.on('did-finish-load', () => {
+        renameWindow.webContents.send('init-folder-path', process.cwd());
     });
 
-    fileReplaceWindow.on('closed', () => {
-        fileReplaceWindow = null;
+    renameWindow.on('closed', () => {
+        renameWindow = null;
     });
 }
 
@@ -277,9 +285,19 @@ ipcMain.on('open-file-finder', () => {
     openFileFinderWindow();
 });
 
+ipcMain.on('open-rename-window', () => {
+    openRenameWindow();
+});
+
 ipcMain.on('close-file-finder', () => {
     if (fileFinderWindow) {
         fileFinderWindow.close();
+    }
+});
+
+ipcMain.on('close-rename-window', () => {
+    if (renameWindow) {
+        renameWindow.close();
     }
 });
 
@@ -330,6 +348,32 @@ ipcMain.on('find-files', (event, options) => {
     findFiles(event, options);
 });
 
+// 파일명 변경 검색 이벤트 핸들러
+ipcMain.on('search-rename-files', (event, options) => {
+    searchRenameFiles(event, options);
+});
+
+// 파일명 변경 실행 이벤트 핸들러
+ipcMain.on('execute-rename', (event, files) => {
+    executeRename(event, files);
+});
+
+// 텍스트 파일 선택 다이얼로그 열기
+ipcMain.on('open-text-file-dialog', async (event) => {
+    const sourceWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!sourceWindow) return;
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(sourceWindow, {
+        properties: ['openFile'],
+        filters: [{ name: '텍스트 파일', extensions: ['txt'] }],
+        title: '텍스트 파일 선택',
+    });
+
+    if (!canceled && filePaths.length > 0) {
+        sourceWindow.webContents.send('selected-text-file', filePaths[0]);
+    }
+});
+
 // 파일이 위치한 폴더 열기
 ipcMain.on('open-containing-folder', (event, folderPath) => {
     try {
@@ -369,113 +413,135 @@ ipcMain.on('open-containing-folder', (event, folderPath) => {
     }
 });
 
-// 파일 선택 다이얼로그 열기
-ipcMain.on('open-file-dialog', async (event, options) => {
-    if (!fileReplaceWindow) return;
-
-    const { canceled, filePaths } = await dialog.showOpenDialog(
-        fileReplaceWindow,
-        {
-            properties: ['openFile'],
-            filters: [
-                {
-                    name: options.type === 'text' ? '텍스트 파일' : '엑셀 파일',
-                    extensions: options.extensions,
-                },
-            ],
-        }
-    );
-
-    if (!canceled && filePaths.length > 0) {
-        event.reply('selected-file', {
-            type: options.type,
-            path: filePaths[0],
-        });
-    }
-});
-
-// 파일명 바꾸기 실행
-ipcMain.on('rename-files', async (event, options) => {
+// 파일명 변경 검색
+async function searchRenameFiles(event: IpcMainEvent, options: RenameOptions) {
     try {
-        const { files, renameType, renameValue } = options;
-        let newNames = [];
+        const { folderPath, inputType, searchData } = options;
+        let renameMap = new Map<string, string>();
 
-        // 이름 변경 방식에 따라 처리
-        switch (renameType) {
-            case 'text':
-                // 직접 입력한 텍스트로 변경
-                newNames = files.map(() => renameValue);
-                break;
+        if (inputType === 'direct') {
+            const { oldName, newName } = searchData;
+            const pattern = oldName.replace(/\./g, '\\.').replace(/\*/g, '.*');
+            const regex = new RegExp(pattern, 'i');
 
-            case 'textfile':
-                // 텍스트 파일에서 읽기
-                const textContent = await readFileAsync(renameValue, 'utf8');
-                newNames = textContent
-                    .split('\n')
-                    .map((name) => name.trim())
-                    .filter((name) => name);
-                break;
-
-            case 'excel':
-                // 엑셀 파일에서 읽기
-                const workbook = xlsx.readFile(renameValue);
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                newNames = xlsx.utils
-                    .sheet_to_json(worksheet, { header: 1 })
-                    .flat()
-                    .filter((name) => name)
-                    .map((name) => String(name).trim());
-                break;
-        }
-
-        // 파일 수와 새 이름 수가 일치하는지 확인
-        if (files.length !== newNames.length) {
-            throw new Error('파일 수와 새 이름의 수가 일치하지 않습니다.');
-        }
-
-        // 파일 이름 변경 실행
-        const results = await Promise.all(
-            files.map(async (file, index) => {
-                const oldPath = file;
+            // 재귀적으로 파일 검색
+            const files = await findFilesRecursive(folderPath, regex);
+            files.forEach((file) => {
                 const dir = path.dirname(file);
                 const ext = path.extname(file);
-                const newPath = path.join(dir, newNames[index] + ext);
+                const baseName = path.basename(file, ext);
+                const newFileName = baseName.replace(
+                    new RegExp(pattern, 'i'),
+                    newName
+                );
+                renameMap.set(file, path.join(dir, newFileName + ext));
+            });
+        } else {
+            const { filePath, separator } = searchData;
+            const content = await readFileAsync(filePath, 'utf8');
+            const pairs = content
+                .split('\n')
+                .map((line) => line.trim())
+                .filter((line) => line && line.includes(separator))
+                .map((line) => line.split(separator).map((s) => s.trim()));
 
+            for (const [oldName, newName] of pairs) {
+                const pattern = oldName
+                    .replace(/\./g, '\\.')
+                    .replace(/\*/g, '.*');
+                const regex = new RegExp(pattern, 'i');
+                const files = await findFilesRecursive(folderPath, regex);
+
+                files.forEach((file) => {
+                    const dir = path.dirname(file);
+                    const ext = path.extname(file);
+                    const baseName = path.basename(file, ext);
+                    const newFileName = baseName.replace(
+                        new RegExp(pattern, 'i'),
+                        newName
+                    );
+                    renameMap.set(file, path.join(dir, newFileName + ext));
+                });
+            }
+        }
+
+        // 결과 전송
+        const results = Array.from(renameMap.entries()).map(
+            ([oldPath, newPath]) => ({
+                oldPath,
+                newPath,
+            })
+        );
+        event.reply('rename-search-results', results);
+    } catch (error) {
+        console.error('Error in searchRenameFiles:', error);
+        event.reply('search-error', error.message);
+    }
+}
+
+// 재귀적 파일 검색 함수
+async function findFilesRecursive(
+    dirPath: string,
+    regex: RegExp
+): Promise<string[]> {
+    let results: string[] = [];
+
+    try {
+        const entries = await readdirAsync(dirPath);
+        await Promise.all(
+            entries.map(async (entry) => {
+                const fullPath = path.join(dirPath, entry);
                 try {
-                    await renameAsync(oldPath, newPath);
-                    return {
-                        success: true,
-                        oldPath,
-                        newPath,
-                    };
-                } catch (error) {
-                    return {
-                        success: false,
-                        oldPath,
-                        error: error.message,
-                    };
+                    const stat = await statAsync(fullPath);
+                    if (stat.isDirectory()) {
+                        const subResults = await findFilesRecursive(
+                            fullPath,
+                            regex
+                        );
+                        results = results.concat(subResults);
+                    } else if (stat.isFile() && regex.test(entry)) {
+                        results.push(fullPath);
+                    }
+                } catch (err) {
+                    if (err.code !== 'EPERM' && err.code !== 'EACCES') {
+                        throw err;
+                    }
                 }
             })
         );
-
-        // 결과 전송
-        event.reply('rename-results', results);
     } catch (error) {
-        event.reply('rename-error', error.message);
+        console.error(`Error searching directory ${dirPath}:`, error);
     }
-});
 
-// 파일명 찾기 & 바꾸기 창 닫기
-ipcMain.on('close-file-replace', () => {
-    if (fileReplaceWindow) {
-        fileReplaceWindow.close();
-    }
-});
+    return results;
+}
 
-// 파일명 찾기 & 바꾸기 창 닫기
-ipcMain.on('open-file-replace', () => {
-    openFileReplaceWindow();
-});
+// 파일명 변경 실행
+async function executeRename(
+    event: IpcMainEvent,
+    files: { oldPath: string; newPath: string }[]
+) {
+    const results = await Promise.all(
+        files.map(async ({ oldPath, newPath }) => {
+            try {
+                await renameAsync(oldPath, newPath);
+                return {
+                    success: true,
+                    oldPath,
+                    newPath,
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    oldPath,
+                    error: error.message,
+                };
+            }
+        })
+    );
+
+    event.reply('rename-results', results);
+}
 
 // Electron이 초기화되면 창 생성
 app.whenReady().then(() => {

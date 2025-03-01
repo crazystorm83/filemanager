@@ -33,6 +33,10 @@
                 ipcRenderer.send('open-file-finder');
             });
 
+            ipcRenderer.on('open-rename-window', () => {
+                ipcRenderer.send('open-rename-window');
+            });
+
             ipcRenderer.on('open-file-replace', () => {
                 ipcRenderer.send('open-file-replace');
             });
